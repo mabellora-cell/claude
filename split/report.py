@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .classify import Config
 from .ledger import Settlement
-from .model import COLUMNS, PERSONAL, REVIEW, SHARED, Txn
+from .model import COLUMNS, HIS, PERSONAL, REVIEW, SHARED, Txn
 
 
 def write_csv(rows: list[Txn], path: Path) -> None:
@@ -33,12 +33,15 @@ def write_summary(rows: list[Txn], s: Settlement, config: Config, path: Path) ->
     add("| | |")
     add("|---|---:|")
     add(f"| Shared expenses | {_money(s.shared_total)} |")
-    add(f"| {config.partner}'s share | {_money(s.owed)} |")
+    add(f"| Half of shared | {_money(s.shared_total * config.default_share)} |")
+    add(f"| Paid on his behalf (he owes all of it) | {_money(s.his_total)} |")
+    add(f"| **{config.partner}'s share** | **{_money(s.owed)}** |")
     add(f"| Already paid back this period | −{_money(s.partner_paid)} |")
     add(f"| **Net owed** | **{_money(s.net)}** |")
     add("")
     add(f"Your personal spend (not split): {_money(s.personal_total)}  ")
-    add(f"Excluded (card payments, transfers, duplicates): {_money(s.excluded_total)}")
+    add(f"Income received (not an expense): {_money(s.income_total)}  ")
+    add(f"Excluded — card payments, transfers, round-ups: {_money(s.excluded_total)}")
     add("")
 
     if s.review_count:
@@ -70,9 +73,10 @@ def write_summary(rows: list[Txn], s: Settlement, config: Config, path: Path) ->
     add("| Date | Account | Description | Amount | His share |")
     add("|---|---|---|---:|---:|")
     for txn in rows:
-        if txn.split != SHARED or txn.duplicate_of:
+        if txn.split not in (SHARED, HIS) or txn.duplicate_of:
             continue
-        add(f"| {txn.date} | {txn.source} | {txn.description[:44]} | "
+        tag = " *(his)*" if txn.split == HIS else ""
+        add(f"| {txn.date} | {txn.source} | {txn.description[:44]}{tag} | "
             f"{_money(txn.amount)} | {_money(txn.owed)} |")
         if txn.note:
             add(f"| | | ↳ _{txn.note[:80]}_ | | |")

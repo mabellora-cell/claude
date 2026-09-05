@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from .model import EXCLUDED, REVIEW, SHARED, Txn
+from .model import EXCLUDED, HIS, REVIEW, SHARED, Txn
 
 
 @dataclass
@@ -102,7 +102,11 @@ def classify(txn: Txn, config: Config) -> None:
     txn.rule = best.name
     if best.category:
         txn.category = best.category
-    txn.share = best.share if best.share is not None else config.default_share
+    if best.share is not None:
+        txn.share = best.share
+    else:
+        # He owes all of an on-his-behalf expense, half of a shared one.
+        txn.share = Decimal("1") if best.split == HIS else config.default_share
 
 
 def classify_items(items: list, config: Config) -> tuple[Decimal, Decimal, Decimal, list[str]]:

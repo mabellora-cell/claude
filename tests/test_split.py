@@ -44,7 +44,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as td:
         tmp = Path(td)
         inbox = staged_inbox(tmp)
-        config = load_config(ROOT / "rules.toml")
+        # Pinned fixture rules: these tests assert engine behaviour, not the
+        # contents of the live rules.toml, which changes as merchants are added.
+        config = load_config(FIXTURES / "rules.toml")
         rows, s = build(
             load_inbox(inbox), load_orders(inbox / "amazon"), config,
             date(2026, 8, 1), date(2026, 8, 31),
@@ -60,7 +62,8 @@ def main() -> int:
               by_desc["AMEX EPAYMENT ACH PMT 240805"].split, "excluded")
 
         # Specificity beats file order: "LITTLE SPROUTS PRESCHOOL" contains the
-        # grocery keyword "sprouts" but is a baby expense.
+        # grocery keyword "sprouts" but is a baby expense. This is the regression
+        # that a real statement surfaced.
         preschool = by_desc["LITTLE SPROUTS PRESCHOOL"]
         check("preschool is baby, not groceries", preschool.category, "Baby")
         check("preschool is shared", preschool.split, "shared")

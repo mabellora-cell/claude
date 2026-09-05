@@ -9,6 +9,7 @@
   --rule:#dee4dc; --rule-2:#eceee9;
   --shared:#1f6f52; --shared-bg:#e6f0ea; --shared-ink:#155840;
   --mine:#4a5a8f; --mine-bg:#e8eaf3; --mine-ink:#3a4775;
+  --his:#7d3f6b; --his-bg:#f2e7ef; --his-ink:#652f56;
   --skip:#6f7a73; --skip-bg:#ecefec; --skip-ink:#55605a;
   --review:#a8760b; --review-bg:#fbf1dc; --review-ink:#7d5806;
   --focus:#1f6f52; --on-accent:#ffffff;
@@ -24,6 +25,7 @@
     --rule:#2b332d; --rule-2:#232a25;
     --shared:#5cbf95; --shared-bg:#163026; --shared-ink:#7fd3ad;
     --mine:#93a3d8; --mine-bg:#1e2438; --mine-ink:#aab7e4;
+    --his:#d094c0; --his-bg:#2e1f2a; --his-ink:#e0aed3;
     --skip:#8b968f; --skip-bg:#242a26; --skip-ink:#9aa59e;
     --review:#e0a94a; --review-bg:#332714; --review-ink:#eabd6f;
     --focus:#5cbf95; --on-accent:#0f1a15;
@@ -36,6 +38,7 @@
   --rule:#2b332d; --rule-2:#232a25;
   --shared:#5cbf95; --shared-bg:#163026; --shared-ink:#7fd3ad;
   --mine:#93a3d8; --mine-bg:#1e2438; --mine-ink:#aab7e4;
+  --his:#d094c0; --his-bg:#2e1f2a; --his-ink:#e0aed3;
   --skip:#8b968f; --skip-bg:#242a26; --skip-ink:#9aa59e;
   --review:#e0a94a; --review-bg:#332714; --review-ink:#eabd6f;
   --focus:#5cbf95; --on-accent:#0f1a15;
@@ -109,6 +112,7 @@ h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.15;ma
 .row-owed{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
   text-align:right;padding-top:5px;white-space:nowrap;color:var(--ink-3);min-width:74px}
 .row-owed.on{color:var(--shared);font-weight:500}
+.row-owed.all-his{color:var(--his);font-weight:600}
 
 /* ---------- segmented control ---------- */
 .seg{display:inline-flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden;background:var(--surface-2)}
@@ -120,6 +124,7 @@ h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.15;ma
 .seg button[aria-pressed="true"]{color:var(--on-accent)}
 .seg button.v-shared[aria-pressed="true"]{background:var(--shared);color:var(--on-accent)}
 .seg button.v-personal[aria-pressed="true"]{background:var(--mine);color:var(--on-accent)}
+.seg button.v-his[aria-pressed="true"]{background:var(--his);color:var(--on-accent)}
 .seg button.v-excluded[aria-pressed="true"]{background:var(--skip);color:var(--on-accent)}
 .seg .tick{width:12px;display:inline-block;text-align:center}
 .seg.compact button{padding:3px 8px;font-size:11.5px}
@@ -181,7 +186,8 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
       <div class="settle-label" id="net-label"></div>
     </div>
     <div class="stat"><span class="stat-k">Shared</span><span class="stat-v" id="s-shared">$0.00</span></div>
-    <div class="stat"><span class="stat-k">Half</span><span class="stat-v" id="s-half">$0.00</span></div>
+    <div class="stat"><span class="stat-k">On his behalf</span><span class="stat-v" id="s-his">$0.00</span></div>
+    <div class="stat"><span class="stat-k">His share</span><span class="stat-v" id="s-half">$0.00</span></div>
     <div class="stat"><span class="stat-k">Already paid</span><span class="stat-v" id="s-paid">$0.00</span></div>
     <div class="stat"><span class="stat-k">Undecided</span><span class="stat-v warn" id="s-review">0</span></div>
   </div>
@@ -217,6 +223,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   var SPLITS = [
     {key:"shared",   label:"Split",  cls:"v-shared",   tick:"✓"},
     {key:"personal", label:"Mine",   cls:"v-personal", tick:""},
+    {key:"his",      label:"His",    cls:"v-his",      tick:""},
     {key:"excluded", label:"Skip",   cls:"v-excluded", tick:""}
   ];
 
@@ -225,8 +232,25 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     return (n < 0 ? "−$" : "$") + s;
   }
 
-  // An Amazon charge is only ever as shared as its items are: if half the
-  // dollars in the box are diapers, half the charge is shared.
+  // What fraction of a charge he owes. Shared dollars count at half, dollars
+  // you fronted for him count in full, so one Amazon box can hold both.
+  function owedFraction(t){
+    var st = state[t.id];
+    if(!t.items || !t.items.length){
+      if(st.split === "shared") return SHARE;
+      if(st.split === "his") return 1;
+      return 0;
+    }
+    var tot = 0, weighted = 0;
+    t.items.forEach(function(it, i){
+      tot += it.amount;
+      if(st.items[i] === "shared") weighted += it.amount * SHARE;
+      else if(st.items[i] === "his") weighted += it.amount;
+    });
+    return tot === 0 ? 0 : weighted / tot;
+  }
+
+  // The shared-only fraction, used to explain a mixed box in words.
   function sharedFraction(t){
     var st = state[t.id];
     if(!t.items || !t.items.length) return st.split === "shared" ? 1 : 0;
@@ -242,26 +266,29 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     if(t.items && t.items.length){
       var st = state[t.id];
       if(st.items.every(function(v){ return v === "shared"; })) return "shared";
+      if(st.items.every(function(v){ return v === "his"; })) return "his";
       if(st.items.every(function(v){ return v === "personal"; })) return "personal";
       if(st.items.every(function(v){ return v === "excluded"; })) return "excluded";
       if(st.items.some(function(v){ return v === "review"; })) return "review";
-      return "shared"; // mixed box: shared, but only for its shared portion
+      return "shared"; // mixed box: counted, but only for the parts he owes
     }
     return state[t.id].split;
   }
 
   function owed(t){
     if(t.is_payment) return 0;
-    if(effectiveSplit(t) !== "shared") return 0;
-    return t.amount * SHARE * sharedFraction(t);
+    var sp = effectiveSplit(t);
+    if(sp !== "shared" && sp !== "his") return 0;
+    return t.amount * owedFraction(t);
   }
 
   function totals(){
-    var o = {shared:0, half:0, paid:0, review:0, personal:0, excluded:0};
+    var o = {shared:0, his:0, half:0, paid:0, review:0, personal:0, excluded:0};
     TXNS.forEach(function(t){
       if(t.is_payment){ o.paid += -t.amount; return; }
       var sp = effectiveSplit(t);
       if(sp === "shared"){ o.shared += t.amount; o.half += owed(t); }
+      else if(sp === "his"){ o.his += t.amount; o.half += owed(t); }
       else if(sp === "personal") o.personal += t.amount;
       else if(sp === "review") o.review++;
       else o.excluded += t.amount;
@@ -275,6 +302,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     document.getElementById("net-label").textContent =
       META.partner + " owes " + META.me + (o.review ? ", so far" : "");
     document.getElementById("s-shared").textContent = money(o.shared);
+    document.getElementById("s-his").textContent = money(o.his);
     document.getElementById("s-half").textContent = money(o.half);
     document.getElementById("s-paid").textContent = "−" + money(o.paid);
     var rv = document.getElementById("s-review");
@@ -286,7 +314,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   }
 
   function counts(){
-    var c = {all:TXNS.length, review:0, shared:0, personal:0, excluded:0};
+    var c = {all:TXNS.length, review:0, shared:0, his:0, personal:0, excluded:0};
     TXNS.forEach(function(t){
       var sp = t.is_payment ? "excluded" : effectiveSplit(t);
       if(c[sp] !== undefined) c[sp]++;
@@ -300,6 +328,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
       {k:"review",   label:"Needs a decision"},
       {k:"all",      label:"Everything"},
       {k:"shared",   label:"Split"},
+      {k:"his",      label:"His"},
       {k:"personal", label:"Mine"},
       {k:"excluded", label:"Skipped"}
     ];
@@ -463,8 +492,9 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
 
     var ow = document.createElement("div");
     var o = owed(t);
-    ow.className = "row-owed" + (o ? " on" : "");
-    ow.textContent = t.is_payment ? "paid back" : (o ? money(o) : "—");
+    ow.className = "row-owed" + (o ? (sp === "his" ? " all-his" : " on") : "");
+    ow.textContent = t.is_payment ? "paid back"
+      : (o ? money(o) + (sp === "his" ? " (all)" : "") : "—");
     row.appendChild(ow);
 
     if(t.items && t.items.length) appendItems(row, t);
@@ -514,7 +544,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     row.appendChild(wrap);
 
     var f = sharedFraction(t);
-    if(f > 0 && f < 1){
+    if(f > 0 && f < 1 && !state[t.id].items.some(function(v){ return v === "his"; })){
       var note = document.createElement("div");
       note.className = "frac";
       note.appendChild(document.createTextNode("Shared portion of this charge: "));

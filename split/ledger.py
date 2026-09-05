@@ -8,9 +8,10 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from .amazon import AmazonOrder, is_amazon_charge, load_orders, match_charge, order_id_in
+from .amazon import (AmazonOrder, is_amazon_charge, load_orders, match_charge,
+                     nearby_orders, order_id_in)
 from .classify import Config, classify, classify_items, is_partner_payment
-from .model import EXCLUDED, PERSONAL, REVIEW, SHARED, Txn
+from .model import EXCLUDED, HIS, PERSONAL, REVIEW, SHARED, Txn
 
 # Sources that represent money actually leaving an account you control.
 MONEY_SOURCES = {"bofa", "capitalone", "amex"}
@@ -24,10 +25,12 @@ _WALLET = re.compile(r"paypal|klarna|afterpay|affirm", re.I)
 class Settlement:
     period: str
     shared_total: Decimal = Decimal("0")
+    his_total: Decimal = Decimal("0")
     personal_total: Decimal = Decimal("0")
     excluded_total: Decimal = Decimal("0")
     review_total: Decimal = Decimal("0")
     partner_paid: Decimal = Decimal("0")
+    income_total: Decimal = Decimal("0")
     owed: Decimal = Decimal("0")
     net: Decimal = Decimal("0")
     review_count: int = 0
@@ -109,20 +112,21 @@ def _enrich_amazon(rows: list[Txn], orders: dict[str, AmazonOrder], config: Conf
         if order is None:
             order, items = match_charge(txn.date, txn.amount, orders, used)
 
-        if order is None:
+        if order is None or not items:
             txn.split = REVIEW
-            txn.rule = "amazon: no matching order"
-            txn.note = "Amazon charge with no order in the export -- check the date range"
+            txn.rule = "amazon: no order matches this amount"
+            near = nearby_orders(txn.date, orders)
+            if near:
+                options = "; ".join(
+                    f"{o.order_date} ${o.total:.2f} {o.items[0].name[:34]}" for o in near
+                )
+                txn.note = f"nearest orders: {options}"
+            else:
+                txn.note = "no Amazon order near this date in the export"
             continue
 
         used.add(order.order_id)
         txn.order_id = order.order_id
-        if not items:
-            items = list(order.items)
-            txn.note = (
-                f"charge ${txn.amount:.2f} does not match order total "
-                f"${order.total:.2f} (partial shipment) -- confirm the items"
-            )
 
         shared, personal, unknown, labels = classify_items(items, config)
         txn.items = labels
@@ -164,10 +168,16 @@ def _total(rows: list[Txn], config: Config, start, end) -> Settlement:
         if is_partner_payment(txn, config) and txn.amount < 0:
             s.partner_paid += -txn.amount
             continue
+        if txn.category == "Income":
+            s.income_total += -txn.amount
+            continue
         if txn.split == SHARED:
             s.shared_total += txn.amount
             key = txn.category or "Uncategorized"
             s.by_category[key] = s.by_category.get(key, Decimal("0")) + txn.amount
+            s.owed += txn.owed
+        elif txn.split == HIS:
+            s.his_total += txn.amount
             s.owed += txn.owed
         elif txn.split == PERSONAL:
             s.personal_total += txn.amount

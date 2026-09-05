@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .classify import Config, is_partner_payment
 from .ledger import Settlement
-from .model import REVIEW, Txn
+from .model import HIS, PERSONAL, REVIEW, SHARED, Txn
 
 TEMPLATE = Path(__file__).parent / "review_template.html"
 
@@ -111,22 +111,26 @@ def apply_decisions(rows: list[Txn], decisions: dict[str, dict], config: Config)
                 f"[{bucket}] {label.partition('] ')[2]}"
                 for bucket, label in zip(item_splits, txn.items)
             ]
-            txn.split, fraction = _from_items(item_splits, txn.items)
-            txn.share = (config.default_share * fraction).quantize(Decimal("0.0001"))
+            txn.split, txn.share = _from_items(item_splits, txn.items, config.default_share)
         else:
             new = decision.get("split")
             if new:
                 txn.split = new
-                txn.share = config.default_share
+                txn.share = Decimal("1") if new == HIS else config.default_share
         txn.rule = (txn.rule + " · confirmed by you").strip(" ·")
         changed += 1
     return changed
 
 
-def _from_items(splits: list[str], labels: list[str]) -> tuple[str, Decimal]:
-    """Derive a charge's split and shared fraction from its item decisions."""
-    total = Decimal("0")
-    shared = Decimal("0")
+def _from_items(
+    splits: list[str], labels: list[str], default_share: Decimal
+) -> tuple[str, Decimal]:
+    """Derive a charge's split and its share from the decisions on its items.
+
+    Shared dollars count at the default share, dollars you fronted for him count
+    in full, so one Amazon box can legitimately hold both.
+    """
+    total = shared = his = Decimal("0")
     for bucket, label in zip(splits, labels):
         _, _, amount = label.rpartition(" $")
         try:
@@ -134,12 +138,18 @@ def _from_items(splits: list[str], labels: list[str]) -> tuple[str, Decimal]:
         except Exception:
             value = Decimal("0")
         total += value
-        if bucket == "shared":
+        if bucket == SHARED:
             shared += value
+        elif bucket == HIS:
+            his += value
+
     if total == 0:
-        return ("shared" if "shared" in splits else "personal"), Decimal("1")
+        return (SHARED if SHARED in splits else PERSONAL), default_share
+    if his == total:
+        return HIS, Decimal("1")
     if shared == total:
-        return "shared", Decimal("1")
-    if shared == 0:
-        return "personal", Decimal("0")
-    return "shared", (shared / total)
+        return SHARED, default_share
+    if shared == 0 and his == 0:
+        return PERSONAL, Decimal("0")
+    share = (default_share * shared + his) / total
+    return SHARED, share.quantize(Decimal("0.0001"))

@@ -9,8 +9,9 @@
 
 [household]
 me = "Mabel"
-partner = "PARTNER"                # <- your husband's name
-partner_aliases = []               # <- fill in once we know which Zelle inflows are his
+partner = "Husband"                # <- tell me his name and I'll set it here
+# Money he sends you. Netted off what he owes rather than counted as income.
+partner_aliases = ["zelle payment from llc gemstonegod"]
 default_share = 0.5
 
 
@@ -102,6 +103,20 @@ category = "Home"
 match = ["home ?depot", "lowe's", "eufy", "landscaping", "ikea", "wayfair"]
 
 [[rule]]
+name = "family travel"
+split = "shared"
+category = "Travel"
+match = ["wdw", "walt disney world", "disney mk", "jetblue", "boardwalk",
+         "earl of sandwich", "lightning lane", "swanhotel"]
+
+[[rule]]
+name = "food delivery"
+split = "shared"
+category = "Dining"
+match = ["uber ?eats", "doordash", "dd \\*", "grubhub", "postmates",
+         "id:uber\\b", "uber \\*trip"]
+
+[[rule]]
 name = "shared subscriptions"
 split = "shared"
 category = "Subscriptions"
@@ -155,21 +170,38 @@ match = ["sunpass", "villaverde parking", "mpa parking", "parking pay by phon",
 name = "baby items"
 split = "shared"
 category = "Baby"
-match = ["diaper", "wipes", "formula", "bottle", "pacifier", "onesie", "swaddle",
+match = ["diaper", "wipe\\w*", "formula", "bottle", "pacifier", "onesie", "swaddle",
          "stroller", "crib", "baby", "infant", "toddler", "nursing", "high ?chair",
-         "bib", "teether", "sippy", "car seat"]
+         "bib\\w*", "teether", "sippy", "car seat", "bassinet", "burp", "sleepsack",
+         "sleep and play", "bodysuit", "romper", "jumpsuit", "footed pajama",
+         "little planet", "honestbaby", "gymboree", "carter", "pumping bra",
+         "breast pump", "flange", "newborn", "hair bows", "walkie talkie"]
 
 [[item_rule]]
 name = "household items"
 split = "shared"
 category = "Home"
 match = ["paper towel", "toilet paper", "detergent", "dish soap", "trash bag",
-         "air filter", "light bulb", "batteries", "cleaner", "vacuum", "storage",
-         "sheets", "towel", "kitchen", "cookware", "pantry", "laundry"]
+         "air filter", "light bulb", "batter\\w*", "cleaner", "vacuum", "storage",
+         "sheet\\w*", "towel\\w*", "kitchen", "cookware", "pantry", "laundry",
+         "molly's suds", "whitener", "dishwasher pod", "hand soap", "mrs. meyer",
+         "insect trap", "curtain rod", "cable tie", "cord clip", "hanger\\w*",
+         "snack container", "water test kit", "organizer bin", "shampoo & body wash"]
 
 [[item_rule]]
 name = "personal items"
 split = "personal"
 category = "Personal"
-match = ["makeup", "lipstick", "serum", "moisturizer", "shampoo", "perfume",
-         "book", "novel", "kindle", "jewelry", "handbag", "supplement", "vitamin"]
+match = ["makeup", "lipstick", "serum", "moisturi\\w*", "perfume", "novel",
+         "kindle", "jewelry", "handbag", "supplement\\w*", "vitamin\\w*",
+         "vanicream", "nutrafol", "earring\\w*", "sunglasses", "tank top",
+         "pajama short", "shower cap", "fanny pack", "wallet", "ruffle sock",
+         "body oil", "setting mist", "e.l.f.", "liners for women", "eraser",
+         "neck fan", "power bank", "charging cable", "charger block", "travel iron",
+         "luggage id tag", "golf umbrella", "oxygen mask"]
+
+[[item_rule]]
+name = "pet items"
+split = "shared"
+category = "Pets"
+match = ["dog food", "dog diaper", "cat food", "science diet"]

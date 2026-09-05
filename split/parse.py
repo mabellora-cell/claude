@@ -25,8 +25,9 @@ ALIASES = {
     ],
     "post_date": ["posted date", "post date", "date posted"],
     "description": [
-        "description", "payee", "name", "merchant", "merchant name", "details",
-        "transaction description", "original description", "product name",
+        "description", "merchant description", "payee", "name", "merchant",
+        "merchant name", "details", "transaction description",
+        "original description", "product name", "item",
     ],
     "amount": ["amount", "gross", "transaction amount", "amount usd", "total owed"],
     "debit": ["debit", "withdrawal", "withdrawals", "charges", "amount debit"],
@@ -35,31 +36,40 @@ ALIASES = {
     "card": ["card no", "card no.", "account #", "account number", "card member", "last 4"],
     "currency": ["currency", "currency code"],
     "memo": ["memo", "notes", "extended details", "appears on your statement as"],
+    # Some ledgers say outright which rows are real spend.
+    "counted": ["counted in spend total", "counted", "count in total"],
 }
 
 
 class SourceSpec:
     """Per-institution quirks."""
 
-    def __init__(self, source: str, account: str, outflow_sign: int):
+    def __init__(self, source: str, account: str, outflow_sign: int,
+                 skip_types: tuple[str, ...] = ()):
         self.source = source
         self.account = account
         # -1: the export writes purchases as negative numbers (bank + most cards)
         # +1: the export writes purchases as positive numbers (Amex, Klarna)
         self.outflow_sign = outflow_sign
+        # Row types that record something rather than move money. A PayPal
+        # "Pay in 4 - Purchase" row is the headline price of a financed
+        # purchase; the money actually leaves in the installment rows, so
+        # counting both would double the purchase.
+        self.skip_types = skip_types
 
 
 SPECS = {
     "bofa": SourceSpec("bofa", "Bank of America", -1),
     "capitalone": SourceSpec("capitalone", "Capital One", -1),
     "amex": SourceSpec("amex", "American Express", +1),
-    "paypal": SourceSpec("paypal", "PayPal", -1),
+    "paypal": SourceSpec("paypal", "PayPal", -1, skip_types=("pay in 4 - purchase",)),
     "klarna": SourceSpec("klarna", "Klarna", +1),
 }
 
 
 def _norm_header(h: str) -> str:
-    return re.sub(r"[^a-z0-9 ]", "", h.strip().lower()).strip()
+    cleaned = re.sub(r"[^a-z0-9]+", " ", h.strip().lower())
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _map_headers(headers: list[str]) -> dict[str, int]:
@@ -151,6 +161,15 @@ def parse_file(path: Path, source: str) -> list[Txn]:
         when = parse_date(cell(row, "date"))
         if when is None:
             continue  # footer/summary line
+
+        # An explicit "is this real spend" column beats any inference.
+        counted = cell(row, "counted").strip().lower()
+        if counted in ("false", "no", "0", "n"):
+            continue
+
+        row_type = cell(row, "category").strip().lower()
+        if any(skip in row_type for skip in spec.skip_types):
+            continue
 
         amount = _row_amount(row, mapping, cell, spec)
         if amount is None:

@@ -11,6 +11,7 @@ from decimal import Decimal
 
 # How a transaction is treated when totalling up the settlement.
 SHARED = "shared"      # split between the two of you
+HIS = "his"            # you paid it on his behalf; he owes all of it
 PERSONAL = "personal"  # yours alone, ignored in the settlement
 EXCLUDED = "excluded"  # not a real expense (card payments, transfers, refunds of excluded)
 REVIEW = "review"      # no rule matched -- you decide before the ledger is final
@@ -28,7 +29,8 @@ class Txn:
     raw_description: str = ""
     category: str = ""
     split: str = REVIEW
-    share: Decimal = Decimal("0.5")   # fraction the *other* person owes
+    share: Decimal = Decimal("0.5")   # fraction of this row the *other* person owes
+                                      # (0.5 when split in half, 1 when it is all his)
     note: str = ""
     order_id: str = ""          # Amazon order this line belongs to, if any
     items: list[str] = field(default_factory=list)
@@ -43,7 +45,7 @@ class Txn:
     @property
     def counted(self) -> bool:
         """True when this row contributes to the settlement total."""
-        return self.split == SHARED and not self.duplicate_of
+        return self.split in (SHARED, HIS) and not self.duplicate_of
 
     @property
     def owed(self) -> Decimal:
