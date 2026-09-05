@@ -1,0 +1,602 @@
+<title>Split Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Spectral:wght@400;600&display=swap">
+<style>
+:root {
+  --paper:#f7f8f4; --surface:#ffffff; --surface-2:#f1f3ee;
+  --ink:#1b2420; --ink-2:#4a564f; --ink-3:#78857c;
+  --rule:#dee4dc; --rule-2:#eceee9;
+  --shared:#1f6f52; --shared-bg:#e6f0ea; --shared-ink:#155840;
+  --mine:#4a5a8f; --mine-bg:#e8eaf3; --mine-ink:#3a4775;
+  --skip:#6f7a73; --skip-bg:#ecefec; --skip-ink:#55605a;
+  --review:#a8760b; --review-bg:#fbf1dc; --review-ink:#7d5806;
+  --focus:#1f6f52; --on-accent:#ffffff;
+  --shadow:0 1px 2px rgba(27,36,32,.06), 0 8px 24px -12px rgba(27,36,32,.18);
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:"Spectral",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#121613; --surface:#1a201c; --surface-2:#212823;
+    --ink:#e8ede9; --ink-2:#a9b5ae; --ink-3:#7f8b84;
+    --rule:#2b332d; --rule-2:#232a25;
+    --shared:#5cbf95; --shared-bg:#163026; --shared-ink:#7fd3ad;
+    --mine:#93a3d8; --mine-bg:#1e2438; --mine-ink:#aab7e4;
+    --skip:#8b968f; --skip-bg:#242a26; --skip-ink:#9aa59e;
+    --review:#e0a94a; --review-bg:#332714; --review-ink:#eabd6f;
+    --focus:#5cbf95; --on-accent:#0f1a15;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121613; --surface:#1a201c; --surface-2:#212823;
+  --ink:#e8ede9; --ink-2:#a9b5ae; --ink-3:#7f8b84;
+  --rule:#2b332d; --rule-2:#232a25;
+  --shared:#5cbf95; --shared-bg:#163026; --shared-ink:#7fd3ad;
+  --mine:#93a3d8; --mine-bg:#1e2438; --mine-ink:#aab7e4;
+  --skip:#8b968f; --skip-bg:#242a26; --skip-ink:#9aa59e;
+  --review:#e0a94a; --review-bg:#332714; --review-ink:#eabd6f;
+  --focus:#5cbf95; --on-accent:#0f1a15;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding-bottom:64px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* ---------- masthead ---------- */
+.masthead{padding:36px 0 20px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.15;margin:6px 0 0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--ink-2);margin:8px 0 0;max-width:62ch}
+.sample-note{margin:16px 0 0;padding:10px 14px;border-left:3px solid var(--review);
+  background:var(--review-bg);color:var(--review-ink);border-radius:0 6px 6px 0;font-size:13.5px}
+
+/* ---------- settlement ---------- */
+.settle{position:sticky;top:0;z-index:20;background:var(--paper);
+  border-bottom:1px solid var(--rule);margin-top:20px}
+.settle-inner{max-width:1080px;margin:0 auto;padding:14px 20px;
+  display:flex;align-items:baseline;gap:28px;flex-wrap:wrap}
+.settle-figure{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.settle-amount{font-family:var(--display);font-size:32px;font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
+.settle-label{font-size:13px;color:var(--ink-2);max-width:26ch;line-height:1.3}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat-k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.stat-v{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums}
+.stat-v.warn{color:var(--review)}
+
+/* ---------- filters ---------- */
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:18px 0 12px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--rule);background:var(--surface);
+  color:var(--ink-2);border-radius:999px;padding:5px 13px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:background .12s,border-color .12s,color .12s}
+.chip:hover{border-color:var(--ink-3);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip .n{font-family:var(--mono);font-size:11.5px;opacity:.75;font-variant-numeric:tabular-nums}
+.bar-sep{flex:1}
+.linkbtn{font:inherit;font-size:13px;background:none;border:none;color:var(--ink-2);
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:5px 4px}
+.linkbtn:hover{color:var(--ink)}
+
+/* ---------- ledger ---------- */
+.group-head{display:flex;align-items:center;gap:10px;padding:22px 0 8px}
+.group-head h2{font-family:var(--display);font-size:17px;font-weight:600;margin:0}
+.group-head .rule{flex:1;height:1px;background:var(--rule)}
+.group-head .n{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+.ledger{background:var(--surface);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:auto 86px 1fr auto auto;gap:14px;align-items:start;
+  padding:12px 16px;border-top:1px solid var(--rule-2)}
+.row:first-child{border-top:none}
+.row.is-review{background:linear-gradient(90deg,var(--review-bg),transparent 45%)}
+.row-date{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);padding-top:5px;white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.row-main{min-width:0;padding-top:2px}
+.row-desc{font-weight:500;overflow-wrap:anywhere}
+.row-raw{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:3px;overflow-wrap:anywhere}
+.row-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.tag{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;
+  padding:2px 7px;border-radius:4px;background:var(--surface-2);color:var(--ink-3)}
+.tag.rule{text-transform:none;letter-spacing:0;font-weight:400;font-size:11.5px;background:none;
+  color:var(--ink-3);padding:2px 0;font-style:italic}
+.row-amt{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;
+  text-align:right;padding-top:4px;white-space:nowrap}
+.row-amt.refund{color:var(--shared)}
+.row-owed{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  text-align:right;padding-top:5px;white-space:nowrap;color:var(--ink-3);min-width:74px}
+.row-owed.on{color:var(--shared);font-weight:500}
+
+/* ---------- segmented control ---------- */
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden;background:var(--surface-2)}
+.seg button{font:inherit;font-size:12px;font-weight:500;border:none;background:none;color:var(--ink-3);
+  padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  border-right:1px solid var(--rule);transition:background .12s,color .12s}
+.seg button:last-child{border-right:none}
+.seg button:hover{color:var(--ink);background:var(--surface)}
+.seg button[aria-pressed="true"]{color:var(--on-accent)}
+.seg button.v-shared[aria-pressed="true"]{background:var(--shared);color:var(--on-accent)}
+.seg button.v-personal[aria-pressed="true"]{background:var(--mine);color:var(--on-accent)}
+.seg button.v-excluded[aria-pressed="true"]{background:var(--skip);color:var(--on-accent)}
+.seg .tick{width:12px;display:inline-block;text-align:center}
+.seg.compact button{padding:3px 8px;font-size:11.5px}
+
+/* ---------- amazon items ---------- */
+.items{grid-column:3/6;margin-top:10px;border-left:2px solid var(--rule);padding-left:14px;
+  display:flex;flex-direction:column;gap:7px}
+.items-head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.item{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.item-name{font-size:13.5px;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
+.item-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.item-amt{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.frac{font-size:12px;color:var(--ink-2);margin-top:8px;grid-column:3/6}
+.frac b{font-weight:600;color:var(--shared)}
+
+.expand{font:inherit;font-size:12px;background:none;border:none;color:var(--ink-2);cursor:pointer;
+  padding:3px 0;text-decoration:underline;text-underline-offset:3px;margin-top:6px}
+.expand:hover{color:var(--ink)}
+
+/* ---------- misc ---------- */
+.empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:14px}
+.saving{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:40;
+  background:var(--ink);color:var(--paper);font-size:12.5px;padding:7px 15px;border-radius:999px;
+  box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .18s}
+.saving.show{opacity:1}
+.saving.warn{background:var(--review);color:#fff}
+footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
+  color:var(--ink-3);font-size:12.5px;max-width:70ch}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+@media (max-width:760px){
+  .row{grid-template-columns:1fr auto;gap:8px}
+  .row-date{grid-row:1;grid-column:1;padding-top:0}
+  .row-amt{grid-row:1;grid-column:2;padding-top:0}
+  .row-main{grid-row:2;grid-column:1/3}
+  .row .seg{grid-row:3;grid-column:1}
+  .row-owed{grid-row:3;grid-column:2;text-align:right;padding-top:6px}
+  .items,.frac{grid-column:1/3}
+  .settle-amount{font-size:26px}
+  h1{font-size:27px}
+}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow" id="period-label"></div>
+    <h1 id="page-title"></h1>
+    <p class="sub">Tick what belongs to both of you. The settlement updates as you go, and your
+      choices are saved for the next time this page is opened.</p>
+    <div id="sample-note" hidden class="sample-note"></div>
+  </header>
+</div>
+
+<div class="settle">
+  <div class="settle-inner">
+    <div class="settle-figure">
+      <div class="settle-amount" id="net">$0.00</div>
+      <div class="settle-label" id="net-label"></div>
+    </div>
+    <div class="stat"><span class="stat-k">Shared</span><span class="stat-v" id="s-shared">$0.00</span></div>
+    <div class="stat"><span class="stat-k">Half</span><span class="stat-v" id="s-half">$0.00</span></div>
+    <div class="stat"><span class="stat-k">Already paid</span><span class="stat-v" id="s-paid">$0.00</span></div>
+    <div class="stat"><span class="stat-k">Undecided</span><span class="stat-v warn" id="s-review">0</span></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="bar" id="filters"></div>
+  <div id="ledger"></div>
+  <footer id="foot"></footer>
+</div>
+
+<div class="saving" id="toast"></div>
+
+<script type="application/json" id="ledger-data">__LEDGER_JSON__</script>
+<script>
+(function(){
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("ledger-data").textContent);
+  var TXNS = DATA.txns, META = DATA.meta;
+  var SHARE = META.default_share;
+
+  // Local decisions, keyed by transaction id. Seeded from the rules engine's
+  // guess, overwritten by anything saved to the shared store.
+  var state = {};
+  TXNS.forEach(function(t){
+    state[t.id] = {
+      split: t.split,
+      items: (t.items || []).map(function(it){ return it.split; })
+    };
+  });
+
+  var db = null, filter = "all";
+  var SPLITS = [
+    {key:"shared",   label:"Split",  cls:"v-shared",   tick:"✓"},
+    {key:"personal", label:"Mine",   cls:"v-personal", tick:""},
+    {key:"excluded", label:"Skip",   cls:"v-excluded", tick:""}
+  ];
+
+  function money(n){
+    var s = Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (n < 0 ? "−$" : "$") + s;
+  }
+
+  // An Amazon charge is only ever as shared as its items are: if half the
+  // dollars in the box are diapers, half the charge is shared.
+  function sharedFraction(t){
+    var st = state[t.id];
+    if(!t.items || !t.items.length) return st.split === "shared" ? 1 : 0;
+    var tot = 0, shared = 0;
+    t.items.forEach(function(it, i){
+      tot += it.amount;
+      if(st.items[i] === "shared") shared += it.amount;
+    });
+    return tot === 0 ? 0 : shared / tot;
+  }
+
+  function effectiveSplit(t){
+    if(t.items && t.items.length){
+      var st = state[t.id];
+      if(st.items.every(function(v){ return v === "shared"; })) return "shared";
+      if(st.items.every(function(v){ return v === "personal"; })) return "personal";
+      if(st.items.every(function(v){ return v === "excluded"; })) return "excluded";
+      if(st.items.some(function(v){ return v === "review"; })) return "review";
+      return "shared"; // mixed box: shared, but only for its shared portion
+    }
+    return state[t.id].split;
+  }
+
+  function owed(t){
+    if(t.is_payment) return 0;
+    if(effectiveSplit(t) !== "shared") return 0;
+    return t.amount * SHARE * sharedFraction(t);
+  }
+
+  function totals(){
+    var o = {shared:0, half:0, paid:0, review:0, personal:0, excluded:0};
+    TXNS.forEach(function(t){
+      if(t.is_payment){ o.paid += -t.amount; return; }
+      var sp = effectiveSplit(t);
+      if(sp === "shared"){ o.shared += t.amount; o.half += owed(t); }
+      else if(sp === "personal") o.personal += t.amount;
+      else if(sp === "review") o.review++;
+      else o.excluded += t.amount;
+    });
+    return o;
+  }
+
+  function render(){
+    var o = totals();
+    document.getElementById("net").textContent = money(o.half - o.paid);
+    document.getElementById("net-label").textContent =
+      META.partner + " owes " + META.me + (o.review ? ", so far" : "");
+    document.getElementById("s-shared").textContent = money(o.shared);
+    document.getElementById("s-half").textContent = money(o.half);
+    document.getElementById("s-paid").textContent = "−" + money(o.paid);
+    var rv = document.getElementById("s-review");
+    rv.textContent = o.review ? String(o.review) : "none";
+    rv.classList.toggle("warn", o.review > 0);
+
+    renderFilters(o);
+    renderLedger();
+  }
+
+  function counts(){
+    var c = {all:TXNS.length, review:0, shared:0, personal:0, excluded:0};
+    TXNS.forEach(function(t){
+      var sp = t.is_payment ? "excluded" : effectiveSplit(t);
+      if(c[sp] !== undefined) c[sp]++;
+    });
+    return c;
+  }
+
+  function renderFilters(){
+    var c = counts();
+    var defs = [
+      {k:"review",   label:"Needs a decision"},
+      {k:"all",      label:"Everything"},
+      {k:"shared",   label:"Split"},
+      {k:"personal", label:"Mine"},
+      {k:"excluded", label:"Skipped"}
+    ];
+    var bar = document.getElementById("filters");
+    bar.textContent = "";
+    defs.forEach(function(d){
+      var b = document.createElement("button");
+      b.className = "chip";
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(filter === d.k));
+      b.appendChild(document.createTextNode(d.label));
+      var n = document.createElement("span");
+      n.className = "n";
+      n.textContent = c[d.k];
+      b.appendChild(n);
+      b.addEventListener("click", function(){ filter = d.k; render(); });
+      bar.appendChild(b);
+    });
+    var sep = document.createElement("span");
+    sep.className = "bar-sep";
+    bar.appendChild(sep);
+
+    var undecided = TXNS.filter(function(t){ return effectiveSplit(t) === "review"; });
+    if(undecided.length){
+      var all = document.createElement("button");
+      all.className = "linkbtn";
+      all.type = "button";
+      all.textContent = "Split all " + undecided.length + " undecided";
+      all.addEventListener("click", function(){
+        undecided.forEach(function(t){ setSplit(t, "shared", true); });
+        render(); flush();
+      });
+      bar.appendChild(all);
+    }
+  }
+
+  function setSplit(t, value, quiet){
+    var st = state[t.id];
+    st.split = value;
+    if(t.items && t.items.length) st.items = t.items.map(function(){ return value; });
+    dirty[t.id] = true;
+    if(!quiet){ render(); flush(); }
+  }
+
+  function renderLedger(){
+    var host = document.getElementById("ledger");
+    host.textContent = "";
+    var rows = TXNS.filter(function(t){
+      if(filter === "all") return true;
+      var sp = t.is_payment ? "excluded" : effectiveSplit(t);
+      return sp === filter;
+    });
+
+    if(!rows.length){
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = filter === "review"
+        ? "Nothing left to decide. Every transaction has been classified."
+        : "No transactions in this view.";
+      host.appendChild(e);
+      return;
+    }
+
+    // Group by source so you review one statement at a time.
+    var order = [], groups = {};
+    rows.forEach(function(t){
+      if(!groups[t.account]){ groups[t.account] = []; order.push(t.account); }
+      groups[t.account].push(t);
+    });
+
+    order.forEach(function(account){
+      var head = document.createElement("div");
+      head.className = "group-head";
+      var h = document.createElement("h2");
+      h.textContent = account;
+      var rule = document.createElement("span");
+      rule.className = "rule";
+      var n = document.createElement("span");
+      n.className = "n";
+      n.textContent = groups[account].length + " of " + TXNS.filter(function(t){
+        return t.account === account; }).length;
+      head.appendChild(h); head.appendChild(rule); head.appendChild(n);
+      host.appendChild(head);
+
+      var box = document.createElement("div");
+      box.className = "ledger";
+      groups[account].forEach(function(t){ box.appendChild(rowEl(t)); });
+      host.appendChild(box);
+    });
+  }
+
+  function segment(current, onPick, compact){
+    var seg = document.createElement("div");
+    seg.className = "seg" + (compact ? " compact" : "");
+    SPLITS.forEach(function(s){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = s.cls;
+      b.setAttribute("aria-pressed", String(current === s.key));
+      if(!compact){
+        var tick = document.createElement("span");
+        tick.className = "tick";
+        tick.textContent = current === s.key ? "✓" : "";
+        b.appendChild(tick);
+      }
+      b.appendChild(document.createTextNode(s.label));
+      b.addEventListener("click", function(){ onPick(s.key); });
+      seg.appendChild(b);
+    });
+    return seg;
+  }
+
+  function rowEl(t){
+    var sp = effectiveSplit(t);
+    var row = document.createElement("div");
+    row.className = "row" + (sp === "review" ? " is-review" : "");
+
+    row.appendChild(segment(sp, function(v){ setSplit(t, v); }, false));
+
+    var d = document.createElement("div");
+    d.className = "row-date";
+    d.textContent = t.date.slice(5);
+    row.appendChild(d);
+
+    var main = document.createElement("div");
+    main.className = "row-main";
+    var desc = document.createElement("div");
+    desc.className = "row-desc";
+    desc.textContent = t.desc;
+    main.appendChild(desc);
+
+    if(t.raw && t.raw !== t.desc){
+      var raw = document.createElement("div");
+      raw.className = "row-raw";
+      raw.textContent = t.raw;
+      main.appendChild(raw);
+    }
+
+    var meta = document.createElement("div");
+    meta.className = "row-meta";
+    if(t.category){
+      var c = document.createElement("span");
+      c.className = "tag";
+      c.textContent = t.category;
+      meta.appendChild(c);
+    }
+    var reason = t.note || t.rule;
+    if(reason){
+      var r = document.createElement("span");
+      r.className = "tag rule";
+      r.textContent = reason;
+      meta.appendChild(r);
+    }
+    if(meta.childNodes.length) main.appendChild(meta);
+    row.appendChild(main);
+
+    var amt = document.createElement("div");
+    amt.className = "row-amt" + (t.amount < 0 ? " refund" : "");
+    amt.textContent = money(t.amount);
+    row.appendChild(amt);
+
+    var ow = document.createElement("div");
+    var o = owed(t);
+    ow.className = "row-owed" + (o ? " on" : "");
+    ow.textContent = t.is_payment ? "paid back" : (o ? money(o) : "—");
+    row.appendChild(ow);
+
+    if(t.items && t.items.length) appendItems(row, t);
+    return row;
+  }
+
+  function appendItems(row, t){
+    var open = expanded[t.id];
+    var btn = document.createElement("button");
+    btn.className = "expand";
+    btn.type = "button";
+    btn.textContent = (open ? "Hide " : "Show ") + t.items.length +
+      (t.items.length === 1 ? " item in this order" : " items in this order");
+    btn.addEventListener("click", function(){ expanded[t.id] = !open; render(); });
+    row.querySelector(".row-main").appendChild(btn);
+
+    if(!open) return;
+
+    var wrap = document.createElement("div");
+    wrap.className = "items";
+    var head = document.createElement("div");
+    head.className = "items-head";
+    head.textContent = "Amazon order " + (t.order_id || "");
+    wrap.appendChild(head);
+
+    t.items.forEach(function(it, i){
+      var el = document.createElement("div");
+      el.className = "item";
+      var name = document.createElement("span");
+      name.className = "item-name";
+      name.textContent = it.name;
+      var right = document.createElement("span");
+      right.className = "item-right";
+      var a = document.createElement("span");
+      a.className = "item-amt";
+      a.textContent = money(it.amount);
+      right.appendChild(a);
+      right.appendChild(segment(state[t.id].items[i], function(v){
+        state[t.id].items[i] = v;
+        dirty[t.id] = true;
+        render(); flush();
+      }, true));
+      el.appendChild(name);
+      el.appendChild(right);
+      wrap.appendChild(el);
+    });
+    row.appendChild(wrap);
+
+    var f = sharedFraction(t);
+    if(f > 0 && f < 1){
+      var note = document.createElement("div");
+      note.className = "frac";
+      note.appendChild(document.createTextNode("Shared portion of this charge: "));
+      var b = document.createElement("b");
+      b.textContent = Math.round(f * 100) + "% (" + money(t.amount * f) + ")";
+      note.appendChild(b);
+      note.appendChild(document.createTextNode(
+        " — so " + META.partner + " owes " + money(t.amount * f * SHARE) + " of it."));
+      row.appendChild(note);
+    }
+  }
+
+  var expanded = {};
+  var dirty = {};
+  var flushTimer = null;
+
+  function toast(msg, warn){
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.toggle("warn", !!warn);
+    el.classList.add("show");
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.classList.remove("show"); }, 1800);
+  }
+
+  // Batch rapid ticking into one write per transaction.
+  function flush(){
+    if(!db) return;
+    clearTimeout(flushTimer);
+    flushTimer = setTimeout(function(){
+      var ids = Object.keys(dirty);
+      if(!ids.length) return;
+      dirty = {};
+      Promise.all(ids.map(function(id){
+        return db.doc("decisions/" + id).set({
+          split: state[id].split,
+          items: state[id].items,
+          updatedAt: Date.now()
+        });
+      })).then(function(){
+        toast("Saved " + ids.length + (ids.length === 1 ? " decision" : " decisions"));
+      }).catch(function(){
+        toast("Could not save — your choices are still on screen", true);
+      });
+    }, 400);
+  }
+
+  function boot(){
+    document.getElementById("page-title").textContent = META.title;
+    document.getElementById("period-label").textContent = META.period;
+    if(META.sample_note){
+      var el = document.getElementById("sample-note");
+      el.hidden = false;
+      el.textContent = META.sample_note;
+    }
+    document.getElementById("foot").textContent = META.footer;
+    render();
+  }
+
+  boot();
+
+  // Saved decisions arrive later, if at all. The page is fully usable before
+  // they do, and stays usable when the store is unavailable.
+  if(window.claude && window.claude.use){
+    window.claude.use("db").then(function(handle){
+      if(!handle) return;
+      db = handle;
+      db.collection("decisions").onSnapshot(function(snap){
+        var changed = false;
+        snap.docs.forEach(function(doc){
+          var body = doc.data();
+          if(!body || !state[doc.id]) return;
+          if(dirty[doc.id]) return; // don't clobber a tick we haven't saved yet
+          state[doc.id].split = body.split || state[doc.id].split;
+          if(Array.isArray(body.items) && body.items.length === state[doc.id].items.length){
+            state[doc.id].items = body.items.slice();
+          }
+          changed = true;
+        });
+        if(changed) render();
+      }, function(){ /* store unavailable; local state stands */ });
+    });
+  }
+})();
+</script>

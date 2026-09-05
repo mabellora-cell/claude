@@ -93,24 +93,36 @@ so you can audit it rather than trust it.
 
 ## Nothing is silently split
 
-Anything no rule matches is marked **`review`** and listed at the top of the
-summary, with its Amazon items spelled out. Review rows are *excluded from the
-total* — the number you send your husband only ever contains transactions that
-were classified deliberately.
+Anything no rule matches is marked **`review`** and held *out of the total* — the
+number you send your husband only ever contains transactions that were
+classified deliberately.
 
-To resolve them:
+### Deciding with the review page (easiest)
+
+```bash
+python3 run.py --month 2026-08 --review
+```
+
+Writes `out/review.html`, which gets published as an Artifact: every transaction
+with a three-way **✓ Split / Mine / Skip** control, the settlement recomputing as
+you tick, and Amazon charges expanding into their individual items so a box of
+diapers and a paperback don't share a verdict. Your choices are saved to the
+page's store, so you can stop halfway and come back.
+
+Then fold the decisions back into the ledger:
+
+```bash
+python3 run.py --month 2026-08 --decisions out/decisions.json
+```
+
+### Or edit the CSV directly
 
 1. Open `out/ledger-2026-08.csv`.
 2. Change the `split` column to `shared`, `personal`, or `excluded`.
-3. Recompute from your decisions:
+3. `python3 run.py --month 2026-08 --ledger out/ledger-2026-08.csv`
 
-```bash
-python3 run.py --month 2026-08 --ledger out/ledger-2026-08.csv
-```
-
-4. Then teach `rules.toml` the merchants you just decided, so next month is quieter.
-
-The month-to-month goal is a shrinking review list.
+Either way, teach `rules.toml` the merchants you just decided so next month is
+quieter. The month-to-month goal is a shrinking review list.
 
 ---
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import json
 import sys
 from datetime import date, datetime
 from decimal import Decimal
@@ -26,6 +27,7 @@ from split.ledger import build
 from split.model import COLUMNS, Txn
 from split.parse import load_inbox, parse_date
 from split.report import write_csv, write_summary
+from split.review import apply_decisions, build_page
 
 ROOT = Path(__file__).parent
 
@@ -74,6 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", default="out", help="output folder")
     ap.add_argument("--rules", default="rules.toml")
     ap.add_argument("--ledger", help="recompute from an already-reviewed ledger CSV")
+    ap.add_argument("--review", action="store_true",
+                    help="also write the interactive review page to out/review-<month>.html")
+    ap.add_argument("--sample-note", help="banner text marking the page as example data")
+    ap.add_argument("--decisions",
+                    help="JSON of decisions exported from the review page, folded in "
+                         "before totalling")
     args = ap.parse_args(argv)
 
     if args.month:
@@ -103,6 +111,12 @@ def main(argv: list[str] | None = None) -> int:
 
     rows, settlement = build(txns, orders, config, start, end)
 
+    if args.decisions:
+        decisions = json.loads(Path(args.decisions).read_text())
+        applied = apply_decisions(rows, decisions, config)
+        rows, settlement = _retotal(rows, config, start, end)
+        print(f"Applied {applied} decisions from {args.decisions}\n")
+
     out = ROOT / args.out
     ledger_path = out / f"ledger-{label}.csv"
     summary_path = out / f"summary-{label}.md"
@@ -111,7 +125,20 @@ def main(argv: list[str] | None = None) -> int:
 
     print(text)
     print(f"\nWrote {ledger_path}\nWrote {summary_path}")
+
+    if args.review:
+        page = build_page(rows, settlement, config, label, args.sample_note or "")
+        (out / f"review-{label}.html").write_text(page)
+        # Stable path so re-publishing updates the same artifact URL.
+        (out / "review.html").write_text(page)
+        print(f"Wrote {out / f'review-{label}.html'} (and out/review.html to publish)")
     return 0
+
+
+def _retotal(rows, config, start, end):
+    """Re-run the totalling pass over rows whose splits you just changed."""
+    from split.ledger import _total
+    return rows, _total(rows, config, start, end)
 
 
 if __name__ == "__main__":
