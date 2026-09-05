@@ -189,12 +189,24 @@ def _row_amount(row, mapping, cell, spec: SourceSpec) -> Decimal | None:
     return amount * spec.outflow_sign
 
 
-def load_inbox(inbox: Path) -> list[Txn]:
-    """Parse every CSV sitting in inbox/<source>/ (Amazon is handled separately)."""
+def load_inbox(inbox: Path, verifications: list | None = None) -> list[Txn]:
+    """Parse every export in inbox/<source>/ (Amazon is handled separately).
+
+    Amex statement PDFs are read too, since Amex's CSV is not always available.
+    Each PDF reports whether its rows reconcile to the statement's own totals;
+    those reports are appended to `verifications` when one is passed in.
+    """
     txns: list[Txn] = []
     for source_dir in sorted(inbox.iterdir()):
         if not source_dir.is_dir() or source_dir.name == "amazon":
             continue
         for path in sorted(source_dir.glob("*.csv")):
             txns.extend(parse_file(path, source_dir.name))
+        for path in sorted(source_dir.glob("*.pdf")):
+            from .amex_pdf import parse_amex_pdf
+
+            rows, verification = parse_amex_pdf(path)
+            txns.extend(rows)
+            if verifications is not None:
+                verifications.append(verification)
     return txns

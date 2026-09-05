@@ -1,135 +1,175 @@
 # ---------------------------------------------------------------------------
-# Your splitting rules. This is the only file you maintain month to month.
+# Splitting rules, written against your real July-August 2026 statements.
 #
-# Anything that matches no rule lands in "review" and is listed at the top of
-# the report -- nothing is ever silently split or silently dropped.
+# Deliberately conservative: only merchants whose category is unambiguous are
+# auto-classified. Anything that depends on knowing *why* you bought something
+# is left for you to tick on the review page. Most specific match wins, so rule
+# order in this file does not matter.
 # ---------------------------------------------------------------------------
 
 [household]
 me = "Mabel"
-partner = "James"                 # <- change to your husband's name
-# Aliases that identify money he sends you (settle-ups), so the report can show
-# what's already been paid back against what's owed.
-partner_aliases = ["zelle payment from james", "james", "venmo.*james"]
-default_share = 0.5               # fraction of a shared expense he owes you
+partner = "PARTNER"                # <- your husband's name
+partner_aliases = []               # <- fill in once we know which Zelle inflows are his
+default_share = 0.5
 
 
-# --- Not real expenses: exclude so nothing is double-counted ---------------
-# Paying an Amex bill from checking is not a new expense -- the underlying Amex
-# charges are already in the ledger. Same for transfers between your accounts.
+# ===========================================================================
+# NOT EXPENSES — money moving between your own accounts, or income.
+# These must never be counted: paying the Amex bill is not a new expense, the
+# Amex charges themselves already are.
+# ===========================================================================
 [[rule]]
-name = "card payments and transfers"
+name = "income"
 split = "excluded"
-match = [
-  "amex epayment", "american express.*(pmt|payment)",
-  "capital one.*(pymt|payment|autopay)",
-  "chase.*(epay|payment)", "discover.*payment",
-  "online banking transfer", "transfer to sav", "transfer from sav",
-  "payment thank you", "payment - thank you", "mobile payment",
-  "klarna.*payment to", "atm withdrawal",
-]
+category = "Income"
+match = ["king jesus inter des:payroll", "iaic des:claim pymt", "bofa rewards",
+         "bkofamerica mobile", "des:payroll"]
 
 [[rule]]
-name = "settle-up from partner"
+name = "card payments"
 split = "excluded"
-category = "Reimbursement"
-match = ["zelle payment from", "venmo.*from", "cash app.*from"]
+match = ["capital one des:online pmt", "capital one online pymt",
+         "american express des:ach pmt", "online payment - thank you",
+         "mobile payment - thank you"]
 
-
-# --- Shared: household, baby, and the two of you ---------------------------
 [[rule]]
-name = "rent and utilities"
+name = "internal transfers"
+split = "excluded"
+match = ["keep the change transfer", "online banking transfer",
+         "webull financial", "rh brokerage deposit"]
+
+[[rule]]
+name = "cash withdrawals"
+split = "excluded"
+category = "Cash"
+match = ["branch banking", "pai atm", "atm withdrwl", "withdrwl"]
+# Cash can't be attributed to a merchant. Excluded rather than guessed --
+# add it back by hand if you know what a specific withdrawal paid for.
+
+
+# ===========================================================================
+# SHARED — household, baby, and the two of you.
+# ===========================================================================
+[[rule]]
+name = "rent"
 split = "shared"
-category = "Housing"
-match = [
-  "rent", "property mgmt", "city of .*utilit", "electric", "gas company",
-  "water dept", "internet", "spectrum", "xfinity", "comcast", "at&t", "verizon fios",
-]
+category = "Rent"
+match = ["cindy landlord"]
+
+[[rule]]
+name = "utilities"
+split = "shared"
+category = "Utilities"
+match = ["fpl direct debit", "homestead utilit", "att des:payment",
+         "paymentus des:billpay", "adt\\*", "vivint"]
+
+[[rule]]
+name = "fuel"
+split = "shared"
+category = "Car"
+match = ["costco gas", "shell oil", "chevron", "wawa", "racetrac"]
 
 [[rule]]
 name = "groceries"
 split = "shared"
 category = "Groceries"
-match = [
-  "whole ?foods", "wholefds", "heb", "h-e-b", "trader joe", "kroger", "safeway",
-  "aldi", "costco", "sam's club", "sprouts", "publix", "instacart", "wegmans",
-]
+match = ["publix", "aldi", "costco", "instacart", "winn.?dixie", "sedanos", "fresco y mas"]
+
+[[rule]]
+name = "childcare"
+split = "shared"
+category = "Childcare"
+match = ["baby ?sit\\w*", "weekly baby\\w*", "day ?care", "nanny"]
 
 [[rule]]
 name = "baby"
 split = "shared"
 category = "Baby"
-match = [
-  "buy ?buy ?baby", "carter", "babylist", "pediatric", "preschool", "daycare",
-  "little sprouts", "the honest co", "primary.com", "nanny",
-]
+match = ["bobbie", "hibobbie", "dreamland bab", "magnetic-me", "legendairy",
+         "tonies", "pottery barn kids", "buy ?buy ?baby", "carter"]
 
 [[rule]]
-name = "household"
+name = "pets"
 split = "shared"
-category = "Household"
-match = [
-  "target", "home depot", "lowe's", "ikea", "container store", "wayfair",
-  "the home ?depot", "ace hardware", "cleaning", "pest control",
-]
+category = "Pets"
+match = ["spot pet insurance", "town & country animal", "chewy", "petco", "petsmart"]
+
+[[rule]]
+name = "home"
+split = "shared"
+category = "Home"
+match = ["home ?depot", "lowe's", "eufy", "landscaping", "ikea", "wayfair"]
 
 [[rule]]
 name = "shared subscriptions"
 split = "shared"
 category = "Subscriptions"
-match = ["netflix", "spotify.*family", "disney ?plus", "hulu", "youtube ?tv", "hbo ?max"]
+match = ["netflix", "disney plus", "hulu", "youtube ?tv", "google youtube"]
 
+
+# ===========================================================================
+# PERSONAL — yours alone.
+# ===========================================================================
 [[rule]]
-name = "couple dining"
-split = "shared"
-category = "Dining"
-match = ["doordash", "uber ?eats", "grubhub"]
-
-
-# --- Personal: yours alone, never split ------------------------------------
-[[rule]]
-name = "personal care and clothing"
+name = "beauty and personal care"
 split = "personal"
 category = "Personal"
-match = [
-  "sephora", "ulta", "nail", "salon", "spa", "lululemon", "zara", "h&m",
-  "anthropologie", "madewell", "gym", "classpass", "peloton",
-]
+match = ["tania beauty", "beauty salon", "sephora", "ulta", "massage",
+         "maria labrador", "nail", "jousfit"]
 
 [[rule]]
-name = "personal subscriptions"
+name = "clothing and luxury"
 split = "personal"
 category = "Personal"
-match = ["audible", "kindle unlimited", "duolingo", "pinterest"]
+match = ["ferragamo", "salvatore fer", "macys", "lacoste", "temu", "stitchy fish",
+         "box lunch", "sassy saints", "beis travel"]
+
+[[rule]]
+name = "student loan"
+split = "personal"
+category = "Debt"
+match = ["dept education", "student ln"]
+
+[[rule]]
+name = "work and software"
+split = "personal"
+category = "Software"
+match = ["anthropic", "canva", "dropbox", "tiktok", "kudos innov", "metaplatfor",
+         "monarch money", "snapfish", "dbpr des", "apple.com bill",
+         "google google", "adobe", "figma"]
+
+[[rule]]
+name = "tolls and parking"
+split = "personal"
+category = "Car"
+match = ["sunpass", "villaverde parking", "mpa parking", "parking pay by phon",
+         "brickell city cen"]
 
 
-# --- Amazon item rules -----------------------------------------------------
-# Matched against the *product name* from the Amazon order export, so a single
-# order containing diapers and a novel splits proportionally.
+# ===========================================================================
+# AMAZON ITEM RULES — matched against product names from the Amazon export.
+# Without that export every Amazon charge falls through to review.
+# ===========================================================================
 [[item_rule]]
 name = "baby items"
 split = "shared"
 category = "Baby"
-match = [
-  "diaper", "wipes", "formula", "bottle", "pacifier", "onesie", "swaddle",
-  "stroller", "crib", "baby", "infant", "toddler", "nursing", "high ?chair",
-]
+match = ["diaper", "wipes", "formula", "bottle", "pacifier", "onesie", "swaddle",
+         "stroller", "crib", "baby", "infant", "toddler", "nursing", "high ?chair",
+         "bib", "teether", "sippy", "car seat"]
 
 [[item_rule]]
 name = "household items"
 split = "shared"
-category = "Household"
-match = [
-  "paper towel", "toilet paper", "detergent", "dish soap", "trash bag",
-  "air filter", "light bulb", "batteries", "cleaner", "vacuum", "storage bin",
-  "sheets", "towel set", "kitchen", "cookware",
-]
+category = "Home"
+match = ["paper towel", "toilet paper", "detergent", "dish soap", "trash bag",
+         "air filter", "light bulb", "batteries", "cleaner", "vacuum", "storage",
+         "sheets", "towel", "kitchen", "cookware", "pantry", "laundry"]
 
 [[item_rule]]
 name = "personal items"
 split = "personal"
 category = "Personal"
-match = [
-  "makeup", "lipstick", "serum", "moisturizer", "shampoo", "perfume",
-  "book", "novel", "kindle", "jewelry", "handbag", "supplement",
-]
+match = ["makeup", "lipstick", "serum", "moisturizer", "shampoo", "perfume",
+         "book", "novel", "kindle", "jewelry", "handbag", "supplement", "vitamin"]

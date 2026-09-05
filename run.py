@@ -102,8 +102,14 @@ def main(argv: list[str] | None = None) -> int:
         if not inbox.exists():
             print(f"No inbox at {inbox}", file=sys.stderr)
             return 1
-        txns = load_inbox(inbox)
+        checks: list[dict] = []
+        txns = load_inbox(inbox, checks)
         orders = load_orders(inbox / "amazon")
+        for c in checks:
+            status = "reconciles" if c["charges_ok"] and c["credits_ok"] else "DOES NOT RECONCILE"
+            print(f"{c['file']}: {c['rows']} rows, {status} against the statement totals")
+        if checks:
+            print()
 
     if not txns:
         print("No transactions found. Drop your CSV exports into inbox/<source>/.")
