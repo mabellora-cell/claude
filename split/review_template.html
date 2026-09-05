@@ -104,6 +104,7 @@ h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.15;ma
 .row-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
 .tag{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;
   padding:2px 7px;border-radius:4px;background:var(--surface-2);color:var(--ink-3)}
+.tag.item{background:var(--shared-bg);color:var(--shared-ink)}
 .tag.rule{text-transform:none;letter-spacing:0;font-weight:400;font-size:11.5px;background:none;
   color:var(--ink-3);padding:2px 0;font-style:italic}
 .row-amt{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;
@@ -254,7 +255,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
   var DATA = JSON.parse(document.getElementById("ledger-data").textContent);
   var META = DATA.meta, MONTHS = DATA.months, SHARE = META.default_share;
 
-  var view = "review", monthIx = MONTHS.length - 1, filter = "review";
+  var view = "review", monthIx = MONTHS.length - 1, filter = "all";
   var db = null, downloads = null, dirty = {}, flushTimer = null;
 
   var SPLITS = [
@@ -569,6 +570,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
     if(t.raw && t.raw !== t.desc) main.appendChild(el("div", "row-raw", t.raw));
 
     var meta = el("div", "row-meta");
+    if(t.line_id) meta.appendChild(el("span", "tag item", "Amazon item"));
     if(t.category) meta.appendChild(el("span", "tag", t.category));
     var reason = t.note || t.rule;
     if(reason) meta.appendChild(el("span", "tag rule", reason));
