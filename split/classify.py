@@ -109,28 +109,21 @@ def classify(txn: Txn, config: Config) -> None:
         txn.share = Decimal("1") if best.split == HIS else config.default_share
 
 
-def classify_items(items: list, config: Config) -> tuple[Decimal, Decimal, Decimal, list[str]]:
-    """Split an Amazon order's items into shared / personal / unknown dollars.
+def classify_item(name: str, config: Config) -> tuple[str, str, str]:
+    """Bucket one purchased item by its product name.
 
-    Returns (shared, personal, unknown, labels) where labels describe each item
-    and how it was bucketed, for the review sheet.
+    Returns (split, category, rule_name). Most-specific match wins, exactly as
+    for merchant rules; no match means it needs a decision.
     """
-    shared = personal = unknown = Decimal("0")
-    labels: list[str] = []
-    for item in items:
-        bucket, strength = REVIEW, 0
-        for rule in config.item_rules:
-            score = rule.match_strength(item.name)
-            if score > strength:
-                bucket, strength = rule.split, score
-        if bucket == SHARED:
-            shared += item.total
-        elif bucket == "personal":
-            personal += item.total
-        else:
-            unknown += item.total
-        labels.append(f"[{bucket}] {item.name[:70]} ${item.total:.2f}")
-    return shared, personal, unknown, labels
+    best: Rule | None = None
+    best_strength = 0
+    for rule in config.item_rules:
+        strength = rule.match_strength(name)
+        if strength > best_strength:
+            best, best_strength = rule, strength
+    if best is None:
+        return REVIEW, "Amazon", ""
+    return best.split, (best.category or "Amazon"), best.name
 
 
 def is_partner_payment(txn: Txn, config: Config) -> bool:

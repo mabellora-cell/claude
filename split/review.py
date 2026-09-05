@@ -18,18 +18,6 @@ TEMPLATE = Path(__file__).parent / "review_template.html"
 
 
 def _txn_payload(txn: Txn, config: Config) -> dict:
-    items = []
-    for label in txn.items:
-        # Items are stored as "[bucket] Product name $12.34" by the classifier.
-        bucket, _, rest = label.partition("] ")
-        bucket = bucket.lstrip("[") or REVIEW
-        name, _, amount = rest.rpartition(" $")
-        try:
-            value = float(amount)
-        except ValueError:
-            name, value = rest, 0.0
-        items.append({"name": name.strip(), "amount": value, "split": bucket})
-
     return {
         "id": txn.txn_id,
         "date": txn.date.isoformat(),
@@ -43,7 +31,7 @@ def _txn_payload(txn: Txn, config: Config) -> dict:
         "rule": txn.rule,
         "note": txn.note,
         "order_id": txn.order_id,
-        "items": items,
+        "line_id": txn.line_id,
         "is_payment": is_partner_payment(txn, config) and txn.amount < 0,
     }
 
@@ -101,65 +89,19 @@ def build_page(
     return TEMPLATE.read_text().replace("__LEDGER_JSON__", encoded)
 
 
-def apply_decisions(rows: list[Txn], decisions: dict[str, dict], config: Config) -> int:
-    """Fold decisions read back from the artifact store into the ledger.
-
-    `decisions` maps txn_id -> {"split": str, "items": [str, ...]}. Returns how
-    many rows changed, so the caller can report it.
-    """
+def apply_decisions(
+    rows: list[Txn], decisions: dict[str, dict], config: Config
+) -> int:
+    """Fold decisions read back from the artifact store into the ledger."""
     changed = 0
     for txn in rows:
         decision = decisions.get(txn.txn_id)
         if not decision:
             continue
-
-        item_splits = decision.get("items") or []
-        if item_splits and len(item_splits) == len(txn.items):
-            # Re-label the stored items with your choices, then let the shared
-            # fraction of the box decide the share of the charge.
-            txn.items = [
-                f"[{bucket}] {label.partition('] ')[2]}"
-                for bucket, label in zip(item_splits, txn.items)
-            ]
-            txn.split, txn.share = _from_items(item_splits, txn.items, config.default_share)
-        else:
-            new = decision.get("split")
-            if new:
-                txn.split = new
-                txn.share = Decimal("1") if new == HIS else config.default_share
-        txn.rule = (txn.rule + " · confirmed by you").strip(" ·")
-        changed += 1
+        new = decision.get("split")
+        if new:
+            txn.split = new
+            txn.share = Decimal("1") if new == HIS else config.default_share
+            txn.rule = (txn.rule + " · confirmed by you").strip(" ·")
+            changed += 1
     return changed
-
-
-def _from_items(
-    splits: list[str], labels: list[str], default_share: Decimal
-) -> tuple[str, Decimal]:
-    """Derive a charge's split and its share from the decisions on its items.
-
-    Shared dollars count at the default share, dollars you fronted for him count
-    in full, so one Amazon box can legitimately hold both.
-    """
-    total = shared = his = Decimal("0")
-    for bucket, label in zip(splits, labels):
-        _, _, amount = label.rpartition(" $")
-        try:
-            value = Decimal(amount)
-        except Exception:
-            value = Decimal("0")
-        total += value
-        if bucket == SHARED:
-            shared += value
-        elif bucket == HIS:
-            his += value
-
-    if total == 0:
-        return (SHARED if SHARED in splits else PERSONAL), default_share
-    if his == total:
-        return HIS, Decimal("1")
-    if shared == total:
-        return SHARED, default_share
-    if shared == 0 and his == 0:
-        return PERSONAL, Decimal("0")
-    share = (default_share * shared + his) / total
-    return SHARED, share.quantize(Decimal("0.0001"))

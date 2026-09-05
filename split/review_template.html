@@ -129,21 +129,6 @@ h1{font-family:var(--display);font-weight:600;font-size:34px;line-height:1.15;ma
 .seg .tick{width:12px;display:inline-block;text-align:center}
 .seg.compact button{padding:3px 8px;font-size:11.5px}
 
-/* ---------- amazon items ---------- */
-.items{grid-column:3/6;margin-top:10px;border-left:2px solid var(--rule);padding-left:14px;
-  display:flex;flex-direction:column;gap:7px}
-.items-head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
-.item{display:flex;gap:12px;align-items:center;justify-content:space-between}
-.item-name{font-size:13.5px;color:var(--ink-2);min-width:0;overflow-wrap:anywhere}
-.item-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.item-amt{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.frac{font-size:12px;color:var(--ink-2);margin-top:8px;grid-column:3/6}
-.frac b{font-weight:600;color:var(--shared)}
-
-.expand{font:inherit;font-size:12px;background:none;border:none;color:var(--ink-2);cursor:pointer;
-  padding:3px 0;text-decoration:underline;text-underline-offset:3px;margin-top:6px}
-.expand:hover{color:var(--ink)}
-
 /* ---------- misc ---------- */
 .empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:14px}
 .saving{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:40;
@@ -163,7 +148,6 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   .row-main{grid-row:2;grid-column:1/3}
   .row .seg{grid-row:3;grid-column:1}
   .row-owed{grid-row:3;grid-column:2;text-align:right;padding-top:6px}
-  .items,.frac{grid-column:1/3}
   .settle-amount{font-size:26px}
   h1{font-size:27px}
 }
@@ -271,7 +255,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
   var META = DATA.meta, MONTHS = DATA.months, SHARE = META.default_share;
 
   var view = "review", monthIx = MONTHS.length - 1, filter = "review";
-  var db = null, downloads = null, expanded = {}, dirty = {}, flushTimer = null;
+  var db = null, downloads = null, dirty = {}, flushTimer = null;
 
   var SPLITS = [
     {key:"shared",   label:"Split",  cls:"v-shared"},
@@ -283,12 +267,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
   // Every month's decisions live in one map; transaction ids are unique across months.
   var state = {};
   MONTHS.forEach(function(m){
-    m.txns.forEach(function(t){
-      state[t.id] = {
-        split: t.split,
-        items: (t.items || []).map(function(it){ return it.split; })
-      };
-    });
+    m.txns.forEach(function(t){ state[t.id] = {split: t.split}; });
   });
 
   function month(){ return MONTHS[monthIx]; }
@@ -303,54 +282,15 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
     return e;
   }
 
-  // What fraction of a charge he owes. Shared dollars count at half, dollars
-  // you fronted for him count in full, so one Amazon box can hold both.
-  function owedFraction(t){
-    var st = state[t.id];
-    if(!t.items || !t.items.length){
-      if(st.split === "shared") return SHARE;
-      if(st.split === "his") return 1;
-      return 0;
-    }
-    var tot = 0, weighted = 0;
-    t.items.forEach(function(it, i){
-      tot += it.amount;
-      if(st.items[i] === "shared") weighted += it.amount * SHARE;
-      else if(st.items[i] === "his") weighted += it.amount;
-    });
-    return tot === 0 ? 0 : weighted / tot;
-  }
+  function effectiveSplit(t){ return state[t.id].split; }
 
-  function sharedFraction(t){
-    var st = state[t.id];
-    if(!t.items || !t.items.length) return st.split === "shared" ? 1 : 0;
-    var tot = 0, shared = 0;
-    t.items.forEach(function(it, i){
-      tot += it.amount;
-      if(st.items[i] === "shared") shared += it.amount;
-    });
-    return tot === 0 ? 0 : shared / tot;
-  }
-
-  function effectiveSplit(t){
-    var st = state[t.id];
-    if(t.items && t.items.length){
-      var all = function(v){ return st.items.every(function(x){ return x === v; }); };
-      if(all("shared")) return "shared";
-      if(all("his")) return "his";
-      if(all("personal")) return "personal";
-      if(all("excluded")) return "excluded";
-      if(st.items.some(function(x){ return x === "review"; })) return "review";
-      return "shared";
-    }
-    return st.split;
-  }
-
+  // Shared lines are halved; a line you fronted for him he owes in full.
   function owed(t){
     if(t.is_payment) return 0;
     var sp = effectiveSplit(t);
-    if(sp !== "shared" && sp !== "his") return 0;
-    return t.amount * owedFraction(t);
+    if(sp === "shared") return t.amount * SHARE;
+    if(sp === "his") return t.amount;
+    return 0;
   }
 
   function totals(){
@@ -599,9 +539,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
   }
 
   function setSplit(t, value, quiet){
-    var st = state[t.id];
-    st.split = value;
-    if(t.items && t.items.length) st.items = t.items.map(function(){ return value; });
+    state[t.id].split = value;
     dirty[t.id] = true;
     if(!quiet){ render(); flush(); }
   }
@@ -645,46 +583,7 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
       : (due ? money(due) + (sp === "his" ? " (all)" : "") : "—");
     row.appendChild(ow);
 
-    if(t.items && t.items.length) appendItems(row, t);
     return row;
-  }
-
-  function appendItems(row, t){
-    var open = expanded[t.id];
-    var btn = el("button", "expand", (open ? "Hide " : "Show ") + t.items.length +
-      (t.items.length === 1 ? " item in this order" : " items in this order"));
-    btn.type = "button";
-    btn.addEventListener("click", function(){ expanded[t.id] = !open; render(); });
-    row.querySelector(".row-main").appendChild(btn);
-    if(!open) return;
-
-    var wrap = el("div", "items");
-    wrap.appendChild(el("div", "items-head", "Amazon order " + (t.order_id || "")));
-    t.items.forEach(function(it, i){
-      var line = el("div", "item");
-      line.appendChild(el("span", "item-name", it.name));
-      var right = el("span", "item-right");
-      right.appendChild(el("span", "item-amt", money(it.amount)));
-      right.appendChild(segment(state[t.id].items[i], function(v){
-        state[t.id].items[i] = v;
-        dirty[t.id] = true;
-        render(); flush();
-      }, true));
-      line.appendChild(right);
-      wrap.appendChild(line);
-    });
-    row.appendChild(wrap);
-
-    var f = sharedFraction(t);
-    var anyHis = state[t.id].items.some(function(v){ return v === "his"; });
-    if(f > 0 && f < 1 && !anyHis){
-      var note = el("div", "frac");
-      note.appendChild(document.createTextNode("Shared portion of this charge: "));
-      note.appendChild(el("b", null, Math.round(f * 100) + "% (" + money(t.amount * f) + ")"));
-      note.appendChild(document.createTextNode(
-        " — so " + META.partner + " owes " + money(t.amount * f * SHARE) + " of it."));
-      row.appendChild(note);
-    }
   }
 
   /* ---------------- export ---------------- */
@@ -789,7 +688,6 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
       Promise.all(ids.map(function(id){
         return db.doc("decisions/" + id).set({
           split: state[id].split,
-          items: state[id].items,
           updatedAt: Date.now()
         });
       })).then(function(){
@@ -826,9 +724,6 @@ table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase
           var body = doc.data();
           if(!body || !state[doc.id] || dirty[doc.id]) return;
           state[doc.id].split = body.split || state[doc.id].split;
-          if(Array.isArray(body.items) && body.items.length === state[doc.id].items.length){
-            state[doc.id].items = body.items.slice();
-          }
           changed = true;
         });
         if(changed) render();

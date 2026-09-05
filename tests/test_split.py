@@ -80,24 +80,42 @@ def main() -> int:
         etsy = by_desc["Etsy Seller"]
         check("unmatched paypal spend is kept", etsy.duplicate_of, "")
 
-        # Mixed Amazon order: diapers + paper towels shared, serum personal.
-        mixed = by_desc["AMAZON MKTPL*RT4YU1"]
-        check("mixed amazon order is shared", mixed.split, "shared")
-        check("mixed amazon order owed is proportional", mixed.owed, Decimal("34.21"))
-        check("mixed amazon order lists items", len(mixed.items), 3)
+        # A mixed Amazon order becomes one row per item, each decided on its
+        # own: the charge itself never appears, because "$127.43 at Amazon" is
+        # not a thing you can classify.
+        check("parent amazon charge is gone", "AMAZON MKTPL*RT4YU1" in by_desc, False)
+        lines = [t for t in rows if t.order_id == "112-4455667-8899001"]
+        check("mixed order became three rows", len(lines), 3)
+        check("item rows sum to the charge",
+              sum((t.amount for t in lines), Decimal("0")), Decimal("127.43"))
 
-        # An all-baby order splits straight down the middle.
-        bottles = by_desc["AMAZON.COM*AB12CD34"]
-        check("all-shared amazon order", bottles.owed, Decimal("19.08"))
+        diapers = next(t for t in lines if "Diapers" in t.description)
+        towels = next(t for t in lines if "Paper Towels" in t.description)
+        serum = next(t for t in lines if "Serum" in t.description)
+        check("diapers are shared", diapers.split, "shared")
+        check("paper towels are shared", towels.split, "shared")
+        check("serum is personal", serum.split, "personal")
+        check("only the shared items are charged to him",
+              diapers.owed + towels.owed + serum.owed,
+              ((diapers.amount + towels.amount) / 2).quantize(Decimal("0.01")))
+        check("the personal item is charged to nobody", serum.owed, Decimal("0"))
+
+        # An all-baby order still splits down the middle, item by item.
+        bottles = [t for t in rows if t.order_id == "112-9988776-5544332"]
+        check("all-shared order", sum((t.owed for t in bottles), Decimal("0")),
+              Decimal("19.08"))
 
         # Cancelled orders never enter the ledger.
         orders = load_orders(inbox / "amazon")
         check("cancelled order dropped", "112-1111111-2222222" in orders, False)
 
-        # Settlement math.
-        check("shared total", s.shared_total, Decimal("1536.01"))
+        # Settlement math. The shared pool excludes the $59 serum, which is a
+        # row of its own now rather than a discount on a part-shared charge.
+        check("shared total", s.shared_total, Decimal("1477.01"))
         check("partner already paid", s.partner_paid, Decimal("600.00"))
-        check("net owed", s.net, Decimal("138.51"))
+        # One cent higher than half-even rounding would give; half-up is the
+        # convention for splitting a bill.
+        check("net owed", s.net, Decimal("138.52"))
         check("two rows flagged for review", s.review_count, 2)
 
     print()

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .amazon import (AmazonOrder, is_amazon_charge, load_orders, match_charge,
                      nearby_orders, order_id_in)
-from .classify import Config, classify, classify_items, is_partner_payment
+from .classify import Config, classify, classify_item, is_partner_payment
 from .model import EXCLUDED, HIS, PERSONAL, REVIEW, SHARED, Txn
 
 # Sources that represent money actually leaving an account you control.
@@ -56,7 +56,7 @@ def build(
     rows.sort(key=lambda t: (t.date, t.source, t.description))
 
     _dedupe_wallets(rows)
-    _enrich_amazon(rows, orders, config)
+    rows = _explode_amazon(rows, orders, config)
 
     for txn in rows:
         if txn.split == REVIEW and not txn.rule:  # untouched by Amazon enrichment
@@ -95,15 +95,35 @@ def _dedupe_wallets(rows: list[Txn]) -> None:
             wallet.note = (wallet.note + " no matching card charge; counted as its own spend").strip()
 
 
-def _enrich_amazon(rows: list[Txn], orders: dict[str, AmazonOrder], config: Config) -> None:
-    """Attach item detail to Amazon charges and split mixed orders proportionally."""
+def _explode_amazon(
+    rows: list[Txn], orders: dict[str, AmazonOrder], config: Config
+) -> list[Txn]:
+    """Replace each matched Amazon charge with one row per item purchased.
+
+    A single "AMAZON MKTPL*5N2WE6U90 $80.53" line cannot be classified, because
+    one box routinely holds nappies and a face serum. Once the order is known,
+    the item is the real transaction, so each becomes its own row with its own
+    decision.
+
+    Item prices exclude tax and shipping, so allocating them verbatim would lose
+    money against the bank. Each item is scaled by charge / item-total and the
+    last line absorbs the rounding, so the rows still sum to exactly what left
+    the account.
+    """
     if not orders:
-        return
+        return rows
+
     used: set[str] = set()
+    out: list[Txn] = []
     for txn in rows:
         if txn.duplicate_of or txn.source not in MONEY_SOURCES:
+            out.append(txn)
             continue
         if not is_amazon_charge(txn.description) and not is_amazon_charge(txn.raw_description):
+            out.append(txn)
+            continue
+        if txn.amount <= 0:  # a refund has no item detail to explode
+            out.append(txn)
             continue
 
         explicit = order_id_in(txn.raw_description)
@@ -123,39 +143,57 @@ def _enrich_amazon(rows: list[Txn], orders: dict[str, AmazonOrder], config: Conf
                 txn.note = f"nearest orders: {options}"
             else:
                 txn.note = "no Amazon order near this date in the export"
+            out.append(txn)
             continue
 
         used.add(order.order_id)
-        txn.order_id = order.order_id
+        out.extend(_item_rows(txn, order, items, config))
 
-        shared, personal, unknown, labels = classify_items(items, config)
-        txn.items = labels
-        total = shared + personal + unknown
+    return out
 
-        if unknown > 0 or total == 0:
-            txn.split = REVIEW
-            txn.rule = "amazon: items need a decision"
-            txn.share = config.default_share
-        elif personal == 0:
-            txn.split = SHARED
-            txn.rule = "amazon: all items shared"
-            txn.category = "Amazon"
-            txn.share = config.default_share
-        elif shared == 0:
-            txn.split = PERSONAL
-            txn.rule = "amazon: all items personal"
-            txn.category = "Amazon"
+
+def _item_rows(
+    txn: Txn, order: AmazonOrder, items: list, config: Config
+) -> list[Txn]:
+    """One row per item, together summing to exactly the charge."""
+    item_total = sum((i.total for i in items), Decimal("0"))
+    if item_total <= 0:
+        return [txn]
+
+    lines: list[Txn] = []
+    allocated = Decimal("0")
+    for index, item in enumerate(items):
+        if index == len(items) - 1:
+            amount = txn.amount - allocated       # last line absorbs rounding
         else:
-            # Mixed order: he owes half of only the shared portion of this charge.
-            fraction = shared / total
-            txn.split = SHARED
-            txn.category = "Amazon"
-            txn.rule = "amazon: mixed order, split proportionally"
-            txn.share = (config.default_share * fraction).quantize(Decimal("0.0001"))
-            txn.note = (
-                f"${shared:.2f} of ${total:.2f} is shared "
-                f"({fraction * 100:.0f}% of this charge)"
+            share = (item.total / item_total) * txn.amount
+            amount = share.quantize(Decimal("0.01"))
+            allocated += amount
+
+        split, category, rule = classify_item(item.name, config)
+        note = f"1 of {len(items)} items on a ${txn.amount:.2f} Amazon charge"
+        if amount != item.total:
+            note += f" (listed ${item.total:.2f}, plus its share of tax and shipping)"
+
+        lines.append(
+            Txn(
+                date=txn.date,
+                source=txn.source,
+                account=txn.account,
+                description=item.name,
+                raw_description=txn.raw_description,
+                amount=amount,
+                category=category,
+                split=split,
+                share=Decimal("1") if split == HIS else config.default_share,
+                note=note,
+                order_id=order.order_id,
+                line_id=f"{order.order_id}#{index}",
+                parent_amount=txn.amount,
+                rule=f"amazon item: {rule}" if rule else "amazon item: needs a decision",
             )
+        )
+    return lines
 
 
 def _total(rows: list[Txn], config: Config, start, end) -> Settlement:

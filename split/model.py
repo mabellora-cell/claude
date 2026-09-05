@@ -6,7 +6,7 @@ import hashlib
 import re
 from dataclasses import dataclass, field, asdict
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 # How a transaction is treated when totalling up the settlement.
@@ -36,10 +36,13 @@ class Txn:
     items: list[str] = field(default_factory=list)
     duplicate_of: str = ""      # txn_id of the row this one double-counts
     rule: str = ""              # which rule decided the split
+    line_id: str = ""           # "<order>#<n>" for one item of an Amazon order
+    parent_amount: Decimal | None = None  # the card charge this line came from
 
     @property
     def txn_id(self) -> str:
-        key = f"{self.source}|{self.account}|{self.date}|{self.amount}|{self.raw_description}"
+        key = (f"{self.source}|{self.account}|{self.date}|{self.amount}"
+               f"|{self.raw_description}|{self.line_id}")
         return hashlib.sha1(key.encode()).hexdigest()[:12]
 
     @property
@@ -52,7 +55,10 @@ class Txn:
         """What the other person owes on this row."""
         if not self.counted:
             return Decimal("0")
-        return (self.amount * self.share).quantize(Decimal("0.01"))
+        # Half-up is the convention for splitting a bill; Python's default
+        # half-even would round a .005 share down as often as up and leave the
+        # rows a cent short of the same figure computed in aggregate.
+        return (self.amount * self.share).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     def as_row(self) -> dict:
         d = asdict(self)
@@ -67,7 +73,7 @@ class Txn:
 
 COLUMNS = [
     "date", "source", "account", "description", "amount", "split", "share",
-    "owed", "category", "rule", "items", "order_id", "note", "duplicate_of",
+    "owed", "category", "rule", "order_id", "line_id", "note", "duplicate_of",
     "raw_description", "txn_id",
 ]
 
