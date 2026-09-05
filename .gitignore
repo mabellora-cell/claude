@@ -1,0 +1,10 @@
+# Never commit real financial data. The folder structure is kept via .gitkeep;
+# everything you drop inside is ignored.
+inbox/*/*
+!inbox/*/.gitkeep
+out/*
+!out/.gitkeep
+
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,135 @@
+# ---------------------------------------------------------------------------
+# Your splitting rules. This is the only file you maintain month to month.
+#
+# Anything that matches no rule lands in "review" and is listed at the top of
+# the report -- nothing is ever silently split or silently dropped.
+# ---------------------------------------------------------------------------
+
+[household]
+me = "Mabel"
+partner = "James"                 # <- change to your husband's name
+# Aliases that identify money he sends you (settle-ups), so the report can show
+# what's already been paid back against what's owed.
+partner_aliases = ["zelle payment from james", "james", "venmo.*james"]
+default_share = 0.5               # fraction of a shared expense he owes you
+
+
+# --- Not real expenses: exclude so nothing is double-counted ---------------
+# Paying an Amex bill from checking is not a new expense -- the underlying Amex
+# charges are already in the ledger. Same for transfers between your accounts.
+[[rule]]
+name = "card payments and transfers"
+split = "excluded"
+match = [
+  "amex epayment", "american express.*(pmt|payment)",
+  "capital one.*(pymt|payment|autopay)",
+  "chase.*(epay|payment)", "discover.*payment",
+  "online banking transfer", "transfer to sav", "transfer from sav",
+  "payment thank you", "payment - thank you", "mobile payment",
+  "klarna.*payment to", "atm withdrawal",
+]
+
+[[rule]]
+name = "settle-up from partner"
+split = "excluded"
+category = "Reimbursement"
+match = ["zelle payment from", "venmo.*from", "cash app.*from"]
+
+
+# --- Shared: household, baby, and the two of you ---------------------------
+[[rule]]
+name = "rent and utilities"
+split = "shared"
+category = "Housing"
+match = [
+  "rent", "property mgmt", "city of .*utilit", "electric", "gas company",
+  "water dept", "internet", "spectrum", "xfinity", "comcast", "at&t", "verizon fios",
+]
+
+[[rule]]
+name = "groceries"
+split = "shared"
+category = "Groceries"
+match = [
+  "whole ?foods", "wholefds", "heb", "h-e-b", "trader joe", "kroger", "safeway",
+  "aldi", "costco", "sam's club", "sprouts", "publix", "instacart", "wegmans",
+]
+
+[[rule]]
+name = "baby"
+split = "shared"
+category = "Baby"
+match = [
+  "buy ?buy ?baby", "carter", "babylist", "pediatric", "preschool", "daycare",
+  "little sprouts", "the honest co", "primary.com", "nanny",
+]
+
+[[rule]]
+name = "household"
+split = "shared"
+category = "Household"
+match = [
+  "target", "home depot", "lowe's", "ikea", "container store", "wayfair",
+  "the home ?depot", "ace hardware", "cleaning", "pest control",
+]
+
+[[rule]]
+name = "shared subscriptions"
+split = "shared"
+category = "Subscriptions"
+match = ["netflix", "spotify.*family", "disney ?plus", "hulu", "youtube ?tv", "hbo ?max"]
+
+[[rule]]
+name = "couple dining"
+split = "shared"
+category = "Dining"
+match = ["doordash", "uber ?eats", "grubhub"]
+
+
+# --- Personal: yours alone, never split ------------------------------------
+[[rule]]
+name = "personal care and clothing"
+split = "personal"
+category = "Personal"
+match = [
+  "sephora", "ulta", "nail", "salon", "spa", "lululemon", "zara", "h&m",
+  "anthropologie", "madewell", "gym", "classpass", "peloton",
+]
+
+[[rule]]
+name = "personal subscriptions"
+split = "personal"
+category = "Personal"
+match = ["audible", "kindle unlimited", "duolingo", "pinterest"]
+
+
+# --- Amazon item rules -----------------------------------------------------
+# Matched against the *product name* from the Amazon order export, so a single
+# order containing diapers and a novel splits proportionally.
+[[item_rule]]
+name = "baby items"
+split = "shared"
+category = "Baby"
+match = [
+  "diaper", "wipes", "formula", "bottle", "pacifier", "onesie", "swaddle",
+  "stroller", "crib", "baby", "infant", "toddler", "nursing", "high ?chair",
+]
+
+[[item_rule]]
+name = "household items"
+split = "shared"
+category = "Household"
+match = [
+  "paper towel", "toilet paper", "detergent", "dish soap", "trash bag",
+  "air filter", "light bulb", "batteries", "cleaner", "vacuum", "storage bin",
+  "sheets", "towel set", "kitchen", "cookware",
+]
+
+[[item_rule]]
+name = "personal items"
+split = "personal"
+category = "Personal"
+match = [
+  "makeup", "lipstick", "serum", "moisturizer", "shampoo", "perfume",
+  "book", "novel", "kindle", "jewelry", "handbag", "supplement",
+]
