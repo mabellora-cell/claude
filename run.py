@@ -78,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ledger", help="recompute from an already-reviewed ledger CSV")
     ap.add_argument("--review", action="store_true",
                     help="also write the interactive review page to out/review-<month>.html")
+    ap.add_argument("--also-month", action="append",
+                    help="include another month in the review page (repeatable)")
     ap.add_argument("--sample-note", help="banner text marking the page as example data")
     ap.add_argument("--decisions",
                     help="JSON of decisions exported from the review page, folded in "
@@ -133,11 +135,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nWrote {ledger_path}\nWrote {summary_path}")
 
     if args.review:
-        page = build_page(rows, settlement, config, label, args.sample_note or "")
+        # Every month named with --also-month ships in the same page, so the
+        # artifact is the settlement record rather than a view onto one run.
+        periods = [(label, rows)]
+        for extra in args.also_month or []:
+            e_start, e_end = month_bounds(extra)
+            e_rows, _ = build(txns, orders, config, e_start, e_end)
+            periods.append((extra, e_rows))
+        periods.sort(key=lambda p: p[0])
+
+        page = build_page(periods, config, args.sample_note or "")
         (out / f"review-{label}.html").write_text(page)
         # Stable path so re-publishing updates the same artifact URL.
         (out / "review.html").write_text(page)
-        print(f"Wrote {out / f'review-{label}.html'} (and out/review.html to publish)")
+        months = ", ".join(p[0] for p in periods)
+        print(f"Wrote {out / 'review.html'} covering {months}")
     return 0
 
 

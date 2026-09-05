@@ -168,13 +168,70 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   h1{font-size:27px}
 }
 </style>
+<style>
+/* ---------- view switch + month tabs ---------- */
+.tabs{display:flex;gap:2px;background:var(--surface-2);border:1px solid var(--rule);
+  border-radius:8px;padding:2px}
+.tabs button{font:inherit;font-size:13px;font-weight:500;border:none;background:none;
+  color:var(--ink-3);padding:5px 14px;border-radius:6px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);
+  box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.tabs button:hover{color:var(--ink)}
+.months{display:flex;gap:6px}
+.months button{font:inherit;font-size:12.5px;border:1px solid var(--rule);background:var(--surface);
+  color:var(--ink-2);border-radius:999px;padding:4px 12px;cursor:pointer}
+.months button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 0 4px}
+.toolbar .spacer{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink);border-radius:7px;padding:6px 14px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--shared);border-color:var(--shared);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.06)}
+
+/* ---------- settlement view ---------- */
+.settlement{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:28px;
+  align-items:start;padding-top:8px}
+@media (max-width:860px){.settlement{grid-template-columns:1fr}}
+.headline{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:24px 26px}
+.headline .who{font-size:13px;color:var(--ink-2);letter-spacing:.01em}
+.headline .amt{font-family:var(--display);font-size:52px;font-weight:600;line-height:1.05;
+  letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin:4px 0 2px}
+.headline .amt.settled{color:var(--shared)}
+.headline .cav{font-size:13px;color:var(--review);margin-top:8px}
+.calc{margin-top:20px;width:100%;border-collapse:collapse;font-size:14px}
+.calc td{padding:7px 0;border-bottom:1px solid var(--rule-2)}
+.calc td:last-child{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.calc tr:last-child td{border-bottom:none;padding-top:12px;font-weight:600;font-size:15.5px}
+.calc tr:last-child td:last-child{color:var(--shared)}
+.calc .sub td{color:var(--ink-2);font-size:13px}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:20px 22px}
+.panel h3{font-family:var(--display);font-size:15px;font-weight:600;margin:0 0 12px}
+.cat{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13.5px}
+.cat .nm{min-width:0;overflow-wrap:anywhere}
+.cat .meter{flex:1;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;min-width:28px}
+.cat .meter i{display:block;height:100%;background:var(--shared);border-radius:3px}
+.cat .vl{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--ink-2);white-space:nowrap}
+.lines{margin-top:24px}
+.lines h3{font-family:var(--display);font-size:16px;font-weight:600;margin:0 0 10px}
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
+table.lines-t{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+table.lines-t th{text-align:left;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--rule)}
+table.lines-t td{padding:9px 14px;border-bottom:1px solid var(--rule-2)}
+table.lines-t tr:last-child td{border-bottom:none}
+table.lines-t td.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+table.lines-t .pill{font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:600;
+  padding:2px 6px;border-radius:4px;background:var(--his-bg);color:var(--his-ink)}
+</style>
 
 <div class="wrap">
   <header class="masthead">
     <div class="eyebrow" id="period-label"></div>
     <h1 id="page-title"></h1>
-    <p class="sub">Tick what belongs to both of you. The settlement updates as you go, and your
-      choices are saved for the next time this page is opened.</p>
+    <p class="sub" id="page-sub"></p>
     <div id="sample-note" hidden class="sample-note"></div>
   </header>
 </div>
@@ -187,15 +244,20 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     </div>
     <div class="stat"><span class="stat-k">Shared</span><span class="stat-v" id="s-shared">$0.00</span></div>
     <div class="stat"><span class="stat-k">On his behalf</span><span class="stat-v" id="s-his">$0.00</span></div>
-    <div class="stat"><span class="stat-k">His share</span><span class="stat-v" id="s-half">$0.00</span></div>
     <div class="stat"><span class="stat-k">Already paid</span><span class="stat-v" id="s-paid">$0.00</span></div>
     <div class="stat"><span class="stat-k">Undecided</span><span class="stat-v warn" id="s-review">0</span></div>
   </div>
 </div>
 
 <div class="wrap">
-  <div class="bar" id="filters"></div>
-  <div id="ledger"></div>
+  <div class="toolbar">
+    <div class="tabs" id="views"></div>
+    <div class="months" id="months"></div>
+    <span class="spacer"></span>
+    <button class="btn" id="export-csv" type="button" hidden>Download ledger</button>
+    <button class="btn primary" id="export-md" type="button" hidden>Download settlement</button>
+  </div>
+  <div id="main"></div>
   <footer id="foot"></footer>
 </div>
 
@@ -206,30 +268,39 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
 (function(){
   "use strict";
   var DATA = JSON.parse(document.getElementById("ledger-data").textContent);
-  var TXNS = DATA.txns, META = DATA.meta;
-  var SHARE = META.default_share;
+  var META = DATA.meta, MONTHS = DATA.months, SHARE = META.default_share;
 
-  // Local decisions, keyed by transaction id. Seeded from the rules engine's
-  // guess, overwritten by anything saved to the shared store.
-  var state = {};
-  TXNS.forEach(function(t){
-    state[t.id] = {
-      split: t.split,
-      items: (t.items || []).map(function(it){ return it.split; })
-    };
-  });
+  var view = "review", monthIx = MONTHS.length - 1, filter = "review";
+  var db = null, downloads = null, expanded = {}, dirty = {}, flushTimer = null;
 
-  var db = null, filter = "all";
   var SPLITS = [
-    {key:"shared",   label:"Split",  cls:"v-shared",   tick:"✓"},
-    {key:"personal", label:"Mine",   cls:"v-personal", tick:""},
-    {key:"his",      label:"His",    cls:"v-his",      tick:""},
-    {key:"excluded", label:"Skip",   cls:"v-excluded", tick:""}
+    {key:"shared",   label:"Split",  cls:"v-shared"},
+    {key:"personal", label:"Mine",   cls:"v-personal"},
+    {key:"his",      label:"His",    cls:"v-his"},
+    {key:"excluded", label:"Skip",   cls:"v-excluded"}
   ];
 
+  // Every month's decisions live in one map; transaction ids are unique across months.
+  var state = {};
+  MONTHS.forEach(function(m){
+    m.txns.forEach(function(t){
+      state[t.id] = {
+        split: t.split,
+        items: (t.items || []).map(function(it){ return it.split; })
+      };
+    });
+  });
+
+  function month(){ return MONTHS[monthIx]; }
   function money(n){
     var s = Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return (n < 0 ? "−$" : "$") + s;
+  }
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(text !== undefined && text !== null) e.textContent = text;
+    return e;
   }
 
   // What fraction of a charge he owes. Shared dollars count at half, dollars
@@ -250,7 +321,6 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     return tot === 0 ? 0 : weighted / tot;
   }
 
-  // The shared-only fraction, used to explain a mixed box in words.
   function sharedFraction(t){
     var st = state[t.id];
     if(!t.items || !t.items.length) return st.split === "shared" ? 1 : 0;
@@ -263,16 +333,17 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   }
 
   function effectiveSplit(t){
+    var st = state[t.id];
     if(t.items && t.items.length){
-      var st = state[t.id];
-      if(st.items.every(function(v){ return v === "shared"; })) return "shared";
-      if(st.items.every(function(v){ return v === "his"; })) return "his";
-      if(st.items.every(function(v){ return v === "personal"; })) return "personal";
-      if(st.items.every(function(v){ return v === "excluded"; })) return "excluded";
-      if(st.items.some(function(v){ return v === "review"; })) return "review";
-      return "shared"; // mixed box: counted, but only for the parts he owes
+      var all = function(v){ return st.items.every(function(x){ return x === v; }); };
+      if(all("shared")) return "shared";
+      if(all("his")) return "his";
+      if(all("personal")) return "personal";
+      if(all("excluded")) return "excluded";
+      if(st.items.some(function(x){ return x === "review"; })) return "review";
+      return "shared";
     }
-    return state[t.id].split;
+    return st.split;
   }
 
   function owed(t){
@@ -283,86 +354,248 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
   }
 
   function totals(){
-    var o = {shared:0, his:0, half:0, paid:0, review:0, personal:0, excluded:0};
-    TXNS.forEach(function(t){
+    var o = {shared:0, his:0, owed:0, paid:0, review:0, reviewAmt:0,
+             personal:0, excluded:0, cats:{}};
+    month().txns.forEach(function(t){
       if(t.is_payment){ o.paid += -t.amount; return; }
       var sp = effectiveSplit(t);
-      if(sp === "shared"){ o.shared += t.amount; o.half += owed(t); }
-      else if(sp === "his"){ o.his += t.amount; o.half += owed(t); }
+      if(sp === "shared" || sp === "his"){
+        if(sp === "shared") o.shared += t.amount; else o.his += t.amount;
+        var due = owed(t);
+        o.owed += due;
+        var k = t.category || "Uncategorized";
+        o.cats[k] = (o.cats[k] || 0) + due;
+      }
       else if(sp === "personal") o.personal += t.amount;
-      else if(sp === "review") o.review++;
+      else if(sp === "review"){ o.review++; o.reviewAmt += t.amount; }
       else o.excluded += t.amount;
     });
+    o.net = o.owed - o.paid;
     return o;
   }
 
-  function render(){
-    var o = totals();
-    document.getElementById("net").textContent = money(o.half - o.paid);
+  /* ---------------- shared chrome ---------------- */
+
+  function renderHeader(o){
+    document.getElementById("page-title").textContent = month().pretty;
+    document.getElementById("period-label").textContent =
+      META.me + " and " + META.partner + " · household split";
+    document.getElementById("page-sub").textContent = view === "review"
+      ? "Tick what belongs to both of you. The settlement updates as you go and your choices are saved."
+      : "The finished settlement for this month. Every figure comes from the decisions on the Review tab.";
+    document.getElementById("net").textContent = money(o.net);
     document.getElementById("net-label").textContent =
       META.partner + " owes " + META.me + (o.review ? ", so far" : "");
     document.getElementById("s-shared").textContent = money(o.shared);
     document.getElementById("s-his").textContent = money(o.his);
-    document.getElementById("s-half").textContent = money(o.half);
     document.getElementById("s-paid").textContent = "−" + money(o.paid);
     var rv = document.getElementById("s-review");
     rv.textContent = o.review ? String(o.review) : "none";
     rv.classList.toggle("warn", o.review > 0);
-
-    renderFilters(o);
-    renderLedger();
+    document.getElementById("foot").textContent = META.footer;
   }
 
+  function renderToolbar(){
+    var views = document.getElementById("views");
+    views.textContent = "";
+    [["review","Review"],["settlement","Settlement"]].forEach(function(v){
+      var b = el("button", null, v[1]);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(view === v[0]));
+      b.addEventListener("click", function(){ view = v[0]; render(); });
+      views.appendChild(b);
+    });
+
+    var months = document.getElementById("months");
+    months.textContent = "";
+    if(MONTHS.length > 1){
+      MONTHS.forEach(function(m, i){
+        var b = el("button", null, m.pretty);
+        b.type = "button";
+        b.setAttribute("aria-pressed", String(monthIx === i));
+        b.addEventListener("click", function(){ monthIx = i; render(); });
+        months.appendChild(b);
+      });
+    }
+  }
+
+  /* ---------------- settlement view ---------------- */
+
+  function renderSettlement(o){
+    var main = document.getElementById("main");
+    main.textContent = "";
+
+    var grid = el("div", "settlement");
+
+    var head = el("div", "headline");
+    head.appendChild(el("div", "who", META.partner + " owes " + META.me));
+    var amt = el("div", "amt" + (o.review ? "" : " settled"), money(o.net));
+    head.appendChild(amt);
+    if(o.review){
+      head.appendChild(el("div", "cav",
+        o.review + " transaction" + (o.review === 1 ? "" : "s") + " worth " +
+        money(o.reviewAmt) + " still undecided, so this figure will move."));
+    }
+
+    var calc = el("table", "calc");
+    function row(label, value, sub){
+      var tr = el("tr", sub ? "sub" : null);
+      tr.appendChild(el("td", null, label));
+      tr.appendChild(el("td", null, value));
+      calc.appendChild(tr);
+    }
+    row("Shared expenses", money(o.shared));
+    row("His half of those", money(o.shared * SHARE), true);
+    if(o.his){
+      row("Paid on his behalf", money(o.his));
+      row("He owes all of that", money(o.his), true);
+    }
+    row("Already paid back", "−" + money(o.paid));
+    row("Net owed", money(o.net));
+    head.appendChild(calc);
+    grid.appendChild(head);
+
+    var panel = el("div", "panel");
+    panel.appendChild(el("h3", null, "What he owes, by category"));
+    var cats = Object.keys(o.cats).map(function(k){ return [k, o.cats[k]]; })
+      .filter(function(kv){ return kv[1] > 0; })
+      .sort(function(a, b){ return b[1] - a[1]; });
+    var max = cats.length ? cats[0][1] : 1;
+    if(!cats.length){
+      panel.appendChild(el("div", "cat", "Nothing classified as shared yet."));
+    }
+    cats.forEach(function(kv){
+      var c = el("div", "cat");
+      c.appendChild(el("span", "nm", kv[0]));
+      var bar = el("span", "meter");
+      var fill = el("i");
+      fill.style.width = Math.max(3, (kv[1] / max) * 100) + "%";
+      bar.appendChild(fill);
+      c.appendChild(bar);
+      c.appendChild(el("span", "vl", money(kv[1])));
+      panel.appendChild(c);
+    });
+    grid.appendChild(panel);
+    main.appendChild(grid);
+
+    var lines = el("div", "lines");
+    lines.appendChild(el("h3", null, "Every line he is charged for"));
+    var wrap = el("div", "tablewrap");
+    var t = el("table", "lines-t");
+    var thead = el("thead");
+    var htr = el("tr");
+    ["Date", "Account", "Description", "Amount", "His share"].forEach(function(h, i){
+      var th = el("th", i >= 3 ? "n" : null, h);
+      if(i >= 3) th.style.textAlign = "right";
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    t.appendChild(thead);
+
+    var tbody = el("tbody");
+    var charged = month().txns.filter(function(x){
+      var sp = effectiveSplit(x);
+      return !x.is_payment && (sp === "shared" || sp === "his");
+    });
+    charged.sort(function(a, b){ return owed(b) - owed(a); });
+    charged.forEach(function(x){
+      var tr = el("tr");
+      tr.appendChild(el("td", null, x.date.slice(5)));
+      tr.appendChild(el("td", null, x.source));
+      var d = el("td");
+      d.appendChild(document.createTextNode(x.desc));
+      if(effectiveSplit(x) === "his"){
+        d.appendChild(document.createTextNode(" "));
+        d.appendChild(el("span", "pill", "all his"));
+      }
+      tr.appendChild(d);
+      tr.appendChild(el("td", "n", money(x.amount)));
+      tr.appendChild(el("td", "n", money(owed(x))));
+      tbody.appendChild(tr);
+    });
+    if(!charged.length){
+      var tr = el("tr");
+      var td = el("td", null, "Nothing to charge him for yet.");
+      td.colSpan = 5;
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+    }
+    t.appendChild(tbody);
+    wrap.appendChild(t);
+    lines.appendChild(wrap);
+    main.appendChild(lines);
+  }
+
+  /* ---------------- review view ---------------- */
+
   function counts(){
-    var c = {all:TXNS.length, review:0, shared:0, his:0, personal:0, excluded:0};
-    TXNS.forEach(function(t){
+    var c = {all:month().txns.length, review:0, shared:0, his:0, personal:0, excluded:0};
+    month().txns.forEach(function(t){
       var sp = t.is_payment ? "excluded" : effectiveSplit(t);
       if(c[sp] !== undefined) c[sp]++;
     });
     return c;
   }
 
-  function renderFilters(){
+  function renderReview(){
+    var main = document.getElementById("main");
+    main.textContent = "";
+
     var c = counts();
-    var defs = [
-      {k:"review",   label:"Needs a decision"},
-      {k:"all",      label:"Everything"},
-      {k:"shared",   label:"Split"},
-      {k:"his",      label:"His"},
-      {k:"personal", label:"Mine"},
-      {k:"excluded", label:"Skipped"}
-    ];
-    var bar = document.getElementById("filters");
-    bar.textContent = "";
-    defs.forEach(function(d){
-      var b = document.createElement("button");
-      b.className = "chip";
+    var bar = el("div", "bar");
+    [["review","Needs a decision"],["all","Everything"],["shared","Split"],
+     ["his","His"],["personal","Mine"],["excluded","Skipped"]].forEach(function(d){
+      var b = el("button", "chip");
       b.type = "button";
-      b.setAttribute("aria-pressed", String(filter === d.k));
-      b.appendChild(document.createTextNode(d.label));
-      var n = document.createElement("span");
-      n.className = "n";
-      n.textContent = c[d.k];
-      b.appendChild(n);
-      b.addEventListener("click", function(){ filter = d.k; render(); });
+      b.setAttribute("aria-pressed", String(filter === d[0]));
+      b.appendChild(document.createTextNode(d[1]));
+      b.appendChild(el("span", "n", c[d[0]]));
+      b.addEventListener("click", function(){ filter = d[0]; render(); });
       bar.appendChild(b);
     });
-    var sep = document.createElement("span");
-    sep.className = "bar-sep";
-    bar.appendChild(sep);
-
-    var undecided = TXNS.filter(function(t){ return effectiveSplit(t) === "review"; });
+    bar.appendChild(el("span", "bar-sep"));
+    var undecided = month().txns.filter(function(t){ return effectiveSplit(t) === "review"; });
     if(undecided.length){
-      var all = document.createElement("button");
-      all.className = "linkbtn";
+      var all = el("button", "linkbtn", "Split all " + undecided.length + " undecided");
       all.type = "button";
-      all.textContent = "Split all " + undecided.length + " undecided";
       all.addEventListener("click", function(){
         undecided.forEach(function(t){ setSplit(t, "shared", true); });
         render(); flush();
       });
       bar.appendChild(all);
     }
+    main.appendChild(bar);
+
+    var rows = month().txns.filter(function(t){
+      if(filter === "all") return true;
+      var sp = t.is_payment ? "excluded" : effectiveSplit(t);
+      return sp === filter;
+    });
+
+    if(!rows.length){
+      main.appendChild(el("div", "empty", filter === "review"
+        ? "Nothing left to decide this month. Open the Settlement tab for the finished figure."
+        : "No transactions in this view."));
+      return;
+    }
+
+    var order = [], groups = {};
+    rows.forEach(function(t){
+      if(!groups[t.account]){ groups[t.account] = []; order.push(t.account); }
+      groups[t.account].push(t);
+    });
+
+    order.forEach(function(account){
+      var head = el("div", "group-head");
+      head.appendChild(el("h2", null, account));
+      head.appendChild(el("span", "rule"));
+      head.appendChild(el("span", "n", groups[account].length + " of " +
+        month().txns.filter(function(t){ return t.account === account; }).length));
+      main.appendChild(head);
+      var box = el("div", "ledger");
+      groups[account].forEach(function(t){ box.appendChild(rowEl(t)); });
+      main.appendChild(box);
+    });
   }
 
   function setSplit(t, value, quiet){
@@ -373,69 +606,15 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     if(!quiet){ render(); flush(); }
   }
 
-  function renderLedger(){
-    var host = document.getElementById("ledger");
-    host.textContent = "";
-    var rows = TXNS.filter(function(t){
-      if(filter === "all") return true;
-      var sp = t.is_payment ? "excluded" : effectiveSplit(t);
-      return sp === filter;
-    });
-
-    if(!rows.length){
-      var e = document.createElement("div");
-      e.className = "empty";
-      e.textContent = filter === "review"
-        ? "Nothing left to decide. Every transaction has been classified."
-        : "No transactions in this view.";
-      host.appendChild(e);
-      return;
-    }
-
-    // Group by source so you review one statement at a time.
-    var order = [], groups = {};
-    rows.forEach(function(t){
-      if(!groups[t.account]){ groups[t.account] = []; order.push(t.account); }
-      groups[t.account].push(t);
-    });
-
-    order.forEach(function(account){
-      var head = document.createElement("div");
-      head.className = "group-head";
-      var h = document.createElement("h2");
-      h.textContent = account;
-      var rule = document.createElement("span");
-      rule.className = "rule";
-      var n = document.createElement("span");
-      n.className = "n";
-      n.textContent = groups[account].length + " of " + TXNS.filter(function(t){
-        return t.account === account; }).length;
-      head.appendChild(h); head.appendChild(rule); head.appendChild(n);
-      host.appendChild(head);
-
-      var box = document.createElement("div");
-      box.className = "ledger";
-      groups[account].forEach(function(t){ box.appendChild(rowEl(t)); });
-      host.appendChild(box);
-    });
-  }
-
   function segment(current, onPick, compact){
-    var seg = document.createElement("div");
-    seg.className = "seg" + (compact ? " compact" : "");
-    SPLITS.forEach(function(s){
-      var b = document.createElement("button");
+    var seg = el("div", "seg" + (compact ? " compact" : ""));
+    SPLITS.forEach(function(sp){
+      var b = el("button", sp.cls);
       b.type = "button";
-      b.className = s.cls;
-      b.setAttribute("aria-pressed", String(current === s.key));
-      if(!compact){
-        var tick = document.createElement("span");
-        tick.className = "tick";
-        tick.textContent = current === s.key ? "✓" : "";
-        b.appendChild(tick);
-      }
-      b.appendChild(document.createTextNode(s.label));
-      b.addEventListener("click", function(){ onPick(s.key); });
+      b.setAttribute("aria-pressed", String(current === sp.key));
+      if(!compact) b.appendChild(el("span", "tick", current === sp.key ? "✓" : ""));
+      b.appendChild(document.createTextNode(sp.label));
+      b.addEventListener("click", function(){ onPick(sp.key); });
       seg.appendChild(b);
     });
     return seg;
@@ -443,58 +622,27 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
 
   function rowEl(t){
     var sp = effectiveSplit(t);
-    var row = document.createElement("div");
-    row.className = "row" + (sp === "review" ? " is-review" : "");
-
+    var row = el("div", "row" + (sp === "review" ? " is-review" : ""));
     row.appendChild(segment(sp, function(v){ setSplit(t, v); }, false));
+    row.appendChild(el("div", "row-date", t.date.slice(5)));
 
-    var d = document.createElement("div");
-    d.className = "row-date";
-    d.textContent = t.date.slice(5);
-    row.appendChild(d);
+    var main = el("div", "row-main");
+    main.appendChild(el("div", "row-desc", t.desc));
+    if(t.raw && t.raw !== t.desc) main.appendChild(el("div", "row-raw", t.raw));
 
-    var main = document.createElement("div");
-    main.className = "row-main";
-    var desc = document.createElement("div");
-    desc.className = "row-desc";
-    desc.textContent = t.desc;
-    main.appendChild(desc);
-
-    if(t.raw && t.raw !== t.desc){
-      var raw = document.createElement("div");
-      raw.className = "row-raw";
-      raw.textContent = t.raw;
-      main.appendChild(raw);
-    }
-
-    var meta = document.createElement("div");
-    meta.className = "row-meta";
-    if(t.category){
-      var c = document.createElement("span");
-      c.className = "tag";
-      c.textContent = t.category;
-      meta.appendChild(c);
-    }
+    var meta = el("div", "row-meta");
+    if(t.category) meta.appendChild(el("span", "tag", t.category));
     var reason = t.note || t.rule;
-    if(reason){
-      var r = document.createElement("span");
-      r.className = "tag rule";
-      r.textContent = reason;
-      meta.appendChild(r);
-    }
+    if(reason) meta.appendChild(el("span", "tag rule", reason));
     if(meta.childNodes.length) main.appendChild(meta);
     row.appendChild(main);
 
-    var amt = document.createElement("div");
-    amt.className = "row-amt" + (t.amount < 0 ? " refund" : "");
-    amt.textContent = money(t.amount);
-    row.appendChild(amt);
+    row.appendChild(el("div", "row-amt" + (t.amount < 0 ? " refund" : ""), money(t.amount)));
 
-    var ow = document.createElement("div");
-    var o = owed(t);
-    ow.className = "row-owed" + (o ? (sp === "his" ? " all-his" : " on") : "");
+    var due = owed(t);
+    var ow = el("div", "row-owed" + (due ? (sp === "his" ? " all-his" : " on") : ""));
     ow.textContent = t.is_payment ? "paid back"
-      : (o ? money(o) + (sp === "his" ? " (all)" : "") : "—");
+      : (due ? money(due) + (sp === "his" ? " (all)" : "") : "—");
     row.appendChild(ow);
 
     if(t.items && t.items.length) appendItems(row, t);
@@ -503,74 +651,134 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
 
   function appendItems(row, t){
     var open = expanded[t.id];
-    var btn = document.createElement("button");
-    btn.className = "expand";
+    var btn = el("button", "expand", (open ? "Hide " : "Show ") + t.items.length +
+      (t.items.length === 1 ? " item in this order" : " items in this order"));
     btn.type = "button";
-    btn.textContent = (open ? "Hide " : "Show ") + t.items.length +
-      (t.items.length === 1 ? " item in this order" : " items in this order");
     btn.addEventListener("click", function(){ expanded[t.id] = !open; render(); });
     row.querySelector(".row-main").appendChild(btn);
-
     if(!open) return;
 
-    var wrap = document.createElement("div");
-    wrap.className = "items";
-    var head = document.createElement("div");
-    head.className = "items-head";
-    head.textContent = "Amazon order " + (t.order_id || "");
-    wrap.appendChild(head);
-
+    var wrap = el("div", "items");
+    wrap.appendChild(el("div", "items-head", "Amazon order " + (t.order_id || "")));
     t.items.forEach(function(it, i){
-      var el = document.createElement("div");
-      el.className = "item";
-      var name = document.createElement("span");
-      name.className = "item-name";
-      name.textContent = it.name;
-      var right = document.createElement("span");
-      right.className = "item-right";
-      var a = document.createElement("span");
-      a.className = "item-amt";
-      a.textContent = money(it.amount);
-      right.appendChild(a);
+      var line = el("div", "item");
+      line.appendChild(el("span", "item-name", it.name));
+      var right = el("span", "item-right");
+      right.appendChild(el("span", "item-amt", money(it.amount)));
       right.appendChild(segment(state[t.id].items[i], function(v){
         state[t.id].items[i] = v;
         dirty[t.id] = true;
         render(); flush();
       }, true));
-      el.appendChild(name);
-      el.appendChild(right);
-      wrap.appendChild(el);
+      line.appendChild(right);
+      wrap.appendChild(line);
     });
     row.appendChild(wrap);
 
     var f = sharedFraction(t);
-    if(f > 0 && f < 1 && !state[t.id].items.some(function(v){ return v === "his"; })){
-      var note = document.createElement("div");
-      note.className = "frac";
+    var anyHis = state[t.id].items.some(function(v){ return v === "his"; });
+    if(f > 0 && f < 1 && !anyHis){
+      var note = el("div", "frac");
       note.appendChild(document.createTextNode("Shared portion of this charge: "));
-      var b = document.createElement("b");
-      b.textContent = Math.round(f * 100) + "% (" + money(t.amount * f) + ")";
-      note.appendChild(b);
+      note.appendChild(el("b", null, Math.round(f * 100) + "% (" + money(t.amount * f) + ")"));
       note.appendChild(document.createTextNode(
         " — so " + META.partner + " owes " + money(t.amount * f * SHARE) + " of it."));
       row.appendChild(note);
     }
   }
 
-  var expanded = {};
-  var dirty = {};
-  var flushTimer = null;
+  /* ---------------- export ---------------- */
 
-  function toast(msg, warn){
-    var el = document.getElementById("toast");
-    el.textContent = msg;
-    el.classList.toggle("warn", !!warn);
-    el.classList.add("show");
-    clearTimeout(el._t);
-    el._t = setTimeout(function(){ el.classList.remove("show"); }, 1800);
+  function csvCell(v){
+    var s = String(v === undefined || v === null ? "" : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
 
-  // Batch rapid ticking into one write per transaction.
+  function ledgerCsv(){
+    var out = [["date","account","source","description","amount","split",
+                "his_share","category","rule","note","raw_description"].join(",")];
+    month().txns.forEach(function(t){
+      out.push([t.date, t.account, t.source, t.desc, t.amount.toFixed(2),
+        t.is_payment ? "payback" : effectiveSplit(t), owed(t).toFixed(2),
+        t.category, t.rule, t.note, t.raw].map(csvCell).join(","));
+    });
+    return out.join("\n");
+  }
+
+  function settlementMd(){
+    var o = totals();
+    var L = [];
+    L.push("# " + month().pretty + " — household split");
+    L.push("");
+    L.push("**" + META.partner + " owes " + META.me + ": " + money(o.net) + "**");
+    L.push("");
+    L.push("| | |");
+    L.push("|---|---:|");
+    L.push("| Shared expenses | " + money(o.shared) + " |");
+    L.push("| His half of those | " + money(o.shared * SHARE) + " |");
+    if(o.his) L.push("| Paid on his behalf (all his) | " + money(o.his) + " |");
+    L.push("| Already paid back | −" + money(o.paid) + " |");
+    L.push("| **Net owed** | **" + money(o.net) + "** |");
+    L.push("");
+    if(o.review){
+      L.push("> " + o.review + " transactions worth " + money(o.reviewAmt) +
+             " are still undecided and are not in this total.");
+      L.push("");
+    }
+    L.push("## By category");
+    L.push("");
+    L.push("| Category | His share |");
+    L.push("|---|---:|");
+    Object.keys(o.cats).sort(function(a,b){ return o.cats[b]-o.cats[a]; }).forEach(function(k){
+      if(o.cats[k] > 0) L.push("| " + k + " | " + money(o.cats[k]) + " |");
+    });
+    L.push("");
+    L.push("## Every line");
+    L.push("");
+    L.push("| Date | Account | Description | Amount | His share |");
+    L.push("|---|---|---|---:|---:|");
+    month().txns.forEach(function(t){
+      var sp = effectiveSplit(t);
+      if(t.is_payment || (sp !== "shared" && sp !== "his")) return;
+      L.push("| " + t.date + " | " + t.source + " | " + t.desc.replace(/\|/g, "/") +
+             (sp === "his" ? " _(all his)_" : "") +
+             " | " + money(t.amount) + " | " + money(owed(t)) + " |");
+    });
+    return L.join("\n") + "\n";
+  }
+
+  function wireExports(){
+    var csvBtn = document.getElementById("export-csv");
+    var mdBtn = document.getElementById("export-md");
+    if(!downloads) return;           // no save affordance when it cannot save
+    csvBtn.hidden = false;
+    mdBtn.hidden = false;
+    csvBtn.onclick = function(){ save("ledger-" + month().label + ".csv", ledgerCsv()); };
+    mdBtn.onclick = function(){ save("settlement-" + month().label + ".md", settlementMd()); };
+  }
+
+  function save(filename, data){
+    downloads.save({filename: filename, data: data}).then(function(){
+      toast("Saved " + filename);
+    }).catch(function(err){
+      var code = err && err.code;
+      if(code === "declined") return;                 // they said no; nothing to report
+      if(code === "rate_limited") toast("A save prompt is already open", true);
+      else toast("Could not save " + filename, true);
+    });
+  }
+
+  /* ---------------- persistence ---------------- */
+
+  function toast(msg, warn){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.toggle("warn", !!warn);
+    t.classList.add("show");
+    clearTimeout(t._t);
+    t._t = setTimeout(function(){ t.classList.remove("show"); }, 1900);
+  }
+
   function flush(){
     if(!db) return;
     clearTimeout(flushTimer);
@@ -592,22 +800,22 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
     }, 400);
   }
 
-  function boot(){
-    document.getElementById("page-title").textContent = META.title;
-    document.getElementById("period-label").textContent = META.period;
-    if(META.sample_note){
-      var el = document.getElementById("sample-note");
-      el.hidden = false;
-      el.textContent = META.sample_note;
-    }
-    document.getElementById("foot").textContent = META.footer;
-    render();
+  function render(){
+    var o = totals();
+    renderHeader(o);
+    renderToolbar();
+    if(view === "settlement") renderSettlement(o);
+    else renderReview();
   }
 
-  boot();
+  if(META.sample_note){
+    var note = document.getElementById("sample-note");
+    note.hidden = false;
+    note.textContent = META.sample_note;
+  }
+  render();
 
-  // Saved decisions arrive later, if at all. The page is fully usable before
-  // they do, and stays usable when the store is unavailable.
+  // Capabilities arrive later, if at all. The page is complete without them.
   if(window.claude && window.claude.use){
     window.claude.use("db").then(function(handle){
       if(!handle) return;
@@ -616,8 +824,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
         var changed = false;
         snap.docs.forEach(function(doc){
           var body = doc.data();
-          if(!body || !state[doc.id]) return;
-          if(dirty[doc.id]) return; // don't clobber a tick we haven't saved yet
+          if(!body || !state[doc.id] || dirty[doc.id]) return;
           state[doc.id].split = body.split || state[doc.id].split;
           if(Array.isArray(body.items) && body.items.length === state[doc.id].items.length){
             state[doc.id].items = body.items.slice();
@@ -625,7 +832,11 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--rule);
           changed = true;
         });
         if(changed) render();
-      }, function(){ /* store unavailable; local state stands */ });
+      }, function(){ /* store unavailable; local decisions still stand */ });
+    });
+    window.claude.use("downloads").then(function(handle){
+      downloads = handle;
+      wireExports();
     });
   }
 })();

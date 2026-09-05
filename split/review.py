@@ -60,31 +60,41 @@ def pretty_period(label: str) -> str:
 
 
 def build_page(
-    rows: list[Txn],
-    settlement: Settlement,
+    months: list[tuple[str, list[Txn]]],
     config: Config,
-    period_label: str,
     sample_note: str = "",
 ) -> str:
-    visible = [t for t in rows if not t.duplicate_of]
-    pretty = pretty_period(period_label)
+    """Render the review page over one or more months.
+
+    `months` is [(period_label, rows), ...]. All months ship in the page so it
+    works as the settlement record itself, not a view onto one run.
+    """
+    dropped = 0
+    payload_months = []
+    for label, rows in months:
+        visible = [t for t in rows if not t.duplicate_of]
+        dropped += len(rows) - len(visible)
+        payload_months.append({
+            "label": label,
+            "pretty": pretty_period(label),
+            "txns": [_txn_payload(t, config) for t in visible],
+        })
+
     payload = {
         "meta": {
-            "title": pretty,
-            "period": f"{config.me} and {config.partner} · what to split",
             "me": config.me,
             "partner": config.partner,
             "default_share": float(config.default_share),
             "sample_note": sample_note,
             "footer": (
-                f"Amounts are what left your accounts. Rows marked Skip are card payments, "
-                f"transfers, or charges already counted from another statement, so they never "
-                f"reach the total. Amazon orders split by their items: if half the dollars in "
-                f"the box are shared, half the charge is. "
-                f"{len(rows) - len(visible)} duplicate rows were removed before this page."
+                "Amounts are what left your accounts. Skip covers card payments, "
+                "transfers, round-ups and charges already counted from another "
+                "statement, so they never reach the total. Amazon charges split by "
+                "their items. "
+                f"{dropped} duplicate rows were removed before this page."
             ),
         },
-        "txns": [_txn_payload(t, config) for t in visible],
+        "months": payload_months,
     }
 
     encoded = json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
